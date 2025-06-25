@@ -1,0 +1,12 @@
+
+.reservation_navbar{
+    @apply flex gap-2 shadow-md
+}
+
+.button_selected{
+    @apply btn btn-active
+}
+
+.button_unselected{
+    @apply btn
+}

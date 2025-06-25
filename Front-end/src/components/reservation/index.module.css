@@ -1,0 +1,29 @@
+
+.my_container{
+    @apply w-full h-screen flex flex-col gap-4 overflow-y-scroll
+}
+
+.title{
+    @apply font-bold text-2xl text-center
+}
+
+.table_title{
+    @apply bg-base-300
+}
+
+.table_title div{
+    @apply flex items-center justify-between
+}
+
+td, th, tr {
+    @apply border-[1px] border-black
+}
+
+.Campus{
+}
+
+.Campus div {
+    @apply flex gap-2 mt-2
+}
+
+
