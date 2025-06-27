@@ -18,7 +18,7 @@ import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 
-@WebServlet("/login.do")
+@WebServlet("/API/login")
 public class LoginServlet extends HttpServlet {
     private static final long PASSWORD_EXPIRY_DAYS = 90;
     private static final int MAX_LOGIN_ATTEMPTS = 5;
@@ -112,7 +112,7 @@ public class LoginServlet extends HttpServlet {
         // 6. 验证密码和角色
         if (admin.getLoginPassword().equals(hashedPassword) && admin.getAdminRole() == roleCode) {
 
-            // 密码过期检测
+            String status = "0"; // 默认密码未过期
             Timestamp lastPwdUpdate = admin.getLastPasswordUpdate();
             if (lastPwdUpdate != null) {
                 long days = ChronoUnit.DAYS.between(
@@ -120,18 +120,16 @@ public class LoginServlet extends HttpServlet {
                         LocalDateTime.now()
                 );
                 if (days > PASSWORD_EXPIRY_DAYS) {
-                    resJson.addProperty("code", 300);
-                    resJson.addProperty("msg", "密码已过期，请前往修改");
-                    resJson.addProperty("redirect", "/changePassword");
-                    response.getWriter().print(resJson.toString());
-                    return;
+                    status = "1"; // 密码已过期
                 }
             }
+
 
             // 更新状态
             admin.setLoginFailCount(0);
             adminDao.modifyAdmin(admin);
 
+            // 登录成功：添加 Jwt
             // 登录成功：添加 Jwt
             Jwt jwtUtil = new Jwt();
             String token = jwtUtil.generateJwtToken(
@@ -139,20 +137,28 @@ public class LoginServlet extends HttpServlet {
                     admin.getLoginName()
             );
 
+// 设置 Cookie（可保留）
             Cookie jwtCookie = new Cookie("jwtToken", token);
-            jwtCookie.setHttpOnly(true);     // 防止 JS 访问，增强安全性
-            jwtCookie.setPath("/");          // 作用范围全站
-            jwtCookie.setMaxAge(2 * 60 * 60); // 2 小时有效（单位秒）
+            jwtCookie.setHttpOnly(true);
+            jwtCookie.setPath("/");
+            jwtCookie.setMaxAge(2 * 60 * 60);
             response.addCookie(jwtCookie);
 
-            // 返回 JSON 响应（如果你之前是 sendRedirect()，改成返回 JSON 给前端跳转）
+// 返回指定格式 JSON
+            JsonObject dataJson = new JsonObject();
+            dataJson.addProperty("role", admin.getAdminRole());
+            dataJson.addProperty("token", token);
+            dataJson.addProperty("status", status); // 新增字段
+
             JsonObject result = new JsonObject();
             result.addProperty("code", 200);
             result.addProperty("msg", "登录成功");
-            result.addProperty("role", admin.getAdminRole());
-            result.addProperty("redirect", getRedirectPageByRole(admin.getAdminRole()));  // 这个方法建议现在返回前端路由地址
+            result.add("data", dataJson);
+
             response.setContentType("application/json;charset=UTF-8");
             response.getWriter().print(result.toString());
+
+
 
         } else {
             admin.setLoginFailCount(admin.getLoginFailCount() + 1);
