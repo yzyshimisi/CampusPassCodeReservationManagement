@@ -9,5 +9,5 @@
             driverClassName="org.postgresql.Driver"
             username="yzyshimisi"
             password="yzyshimisi.com123"
-            url="jdbc:postgresql://192.168.50.129:26000/home5?serverTimezone=Asia/Shanghai"/>
+            url="jdbc:postgresql://192.168.50.129:26000/javaweb?serverTimezone=Asia/Shanghai"/>
 </Context>

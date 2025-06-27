@@ -6,6 +6,7 @@ import javax.naming.*;
 
 public class BaseDao {
     DataSource dataSource;
+    Connection connection;
 
     public BaseDao() {
         try {
@@ -16,7 +17,14 @@ public class BaseDao {
         }
     }
 
+    public void lookupConnection() throws Exception {
+        connection = dataSource.getConnection();
+    }
+    public void releaseConnection() throws Exception {
+        connection.close();
+    }
+
     public Connection getConnection() throws Exception {
-        return dataSource.getConnection();
+        return connection;
     }
 }
