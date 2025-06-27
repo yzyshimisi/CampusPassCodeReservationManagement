@@ -19,11 +19,26 @@ td, th, tr {
     @apply border-[1px] border-black
 }
 
-.Campus{
-}
-
 .Campus div {
     @apply flex gap-2 mt-2
 }
 
+.button_container{
+    @apply flex items-center gap-8
+}
 
+.submitButton{
+    @apply px-12
+}
+
+.switchButton{
+    @apply flex gap-4
+}
+
+textarea{
+    @apply w-full h-[100px] resize-none
+}
+
+.entouragesContainer{
+    @apply flex flex-col gap-4
+}

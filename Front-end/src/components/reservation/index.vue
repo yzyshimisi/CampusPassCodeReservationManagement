@@ -1,6 +1,16 @@
 <template>
 <div class="my_container" id="my_container">
-  <div class="title">社会公众预约</div>
+  <div v-if="isPublic" class="title">社会公众预约</div>
+  <div v-else class="title">社会公务预约</div>
+  <div class="switchButton">
+    <p>公众</p>
+    <input
+        @click="changeComponent"
+        type="checkbox"
+        class="toggle bg-black [--tglbg:white] hover:bg-black"
+        :checked="!isPublic" />
+    <p>公务</p>
+  </div>
   <table class="table text-base">
     <tbody>
     <tr>
@@ -22,7 +32,7 @@
       <td rowspan="2">预约进校时间</td>
       <td>
         <el-date-picker
-            v-model="info.starting_time"
+            v-model="entry_time"
             type="date"
             placeholder="选择起始时间"
         />
@@ -31,7 +41,7 @@
     <tr>
       <td>
         <el-date-picker
-            v-model="info.end_time"
+            v-model="end_time"
             type="date"
             placeholder="选择结束时间"
         />
@@ -39,18 +49,33 @@
     </tr>
     <tr>
       <td>所在单位</td>
-      <td><input type="text" placeholder="请输入所在单位" class="input input-sm input-bordered w-full" /></td>
+      <td><input v-model="info.organization" type="text" placeholder="请输入所在单位" class="input input-sm input-bordered w-full" /></td>
+    </tr>
+    <tr v-if="!isPublic">
+      <th colspan="2" class="table_title">公务信息</th>
+    </tr>
+    <tr v-if="!isPublic">
+      <td>访问部门</td>
+      <td><input v-model="info.visiting_department" type="text" placeholder="请输入访问部门" class="input input-sm input-bordered w-full" /></td>
+    </tr>
+    <tr v-if="!isPublic">
+      <td>接待人</td>
+      <td><input v-model="info.contact_person" type="text" placeholder="请输入接待人" class="input input-sm input-bordered w-full" /></td>
+    </tr>
+    <tr v-if="!isPublic">
+      <td>来访事由</td>
+      <td><textarea v-model="info.visit_purpose" class="textarea textarea-bordered" placeholder="请输入来访事由"></textarea></td>
     </tr>
     <tr>
       <th colspan="2" class="table_title">访客信息</th>
     </tr>
     <tr>
       <td>姓名</td>
-      <td><input v-model="info.name" type="text" placeholder="请输入姓名" class="input input-sm input-bordered w-full" /></td>
+      <td><input v-model="info.full_name" type="text" placeholder="请输入姓名" class="input input-sm input-bordered w-full" /></td>
     </tr>
     <tr>
       <td>身份证号</td>
-      <td><input v-model="info.ID" type="text" placeholder="请输入身份证号" class="input input-sm input-bordered w-full" /></td>
+      <td><input v-model="info.id_number" type="text" placeholder="请输入身份证号" class="input input-sm input-bordered w-full" /></td>
     </tr>
     <tr>
       <td>手机号</td>
@@ -59,9 +84,9 @@
     <tr>
       <td>交通方式</td>
       <td>
-        <select v-model="info.transportation" class="select select-bordered select-sm w-full">
-          <option value="步行" selected>步行</option>
-          <option value="驾车">驾车</option>
+        <select v-model="info.transport_mode" class="select select-bordered select-sm w-full">
+          <option :value="0" selected>步行</option>
+          <option :value="1">驾车</option>
         </select>
       </td>
     </tr>
@@ -72,7 +97,7 @@
     </tbody>
   </table>
   <div class="divider"></div>
-  <div v-for="(value, index) in info.entourages">
+  <div v-for="(value, index) in info.entourages" class="entouragesContainer">
     <table class="table">
       <tbody>
       <tr>
@@ -82,11 +107,11 @@
       </tr>
       <tr>
         <td>姓名</td>
-        <td><input v-model="value['name']" type="text" placeholder="请输入姓名" class="input input-sm input-bordered w-full" /></td>
+        <td><input v-model="value['full_name']" type="text" placeholder="请输入姓名" class="input input-sm input-bordered w-full" /></td>
       </tr>
       <tr>
         <td>身份证号</td>
-        <td><input v-model="value['ID']" type="text" placeholder="请输入身份证号" class="input input-sm input-bordered w-full" /></td>
+        <td><input v-model="value['id_number']" type="text" placeholder="请输入身份证号" class="input input-sm input-bordered w-full" /></td>
       </tr>
       <tr>
         <td>手机号</td>
@@ -95,45 +120,66 @@
       </tbody>
     </table>
   </div>
-  <div>
+  <div class="button_container">
     <button @click="addEntourage()" class="btn text-base text-green-700"><el-icon size="23"><CirclePlus /></el-icon>添加</button>
+    <button @click="submit()" class="btn text-base submitButton">提交</button>
   </div>
 </div>
 </template>
 
 <script lang="ts" setup>
-import { ref, reactive } from "vue";
-import { inputNumberEmits } from "element-plus";
-import { nextTick, onBeforeMount  } from "vue";
+import { nextTick, reactive, ref } from "vue";
+import { makeAppointmentAPI } from "../../apis";
 import { useRequest } from "vue-hooks-plus";
-import { testAPI } from "../../apis"
+import { ElMessage } from "element-plus";
+
+const isPublic = ref<boolean>(true)
+
+const changeComponent = () => {     // 公众预约还是公务预约
+  if(isPublic.value){
+    info['visiting_department'] = ''
+    info['contact_person'] = ''
+    info['visit_purpose'] = ''
+    info.isPublic = 0
+  }else{
+    delete info['visiting_department']
+    delete info['contact_person']
+    delete info['visit_purpose']
+    info.isPublic = 1
+  }
+  isPublic.value = ! isPublic.value
+}
 
 let date = new Date();
-const nowDate = ref<String>(String(date.getFullYear()).concat('-').concat(String(date.getMonth())).concat('-').concat(String(date.getDate())));
+const nowDate = ref<String>(String(date.getFullYear()).concat('-').concat('0'.concat(String(date.getMonth()+1))).concat('-').concat(String(date.getDate())));
 
 const entourages = ref<Array<Object>>([])
 
-const info = reactive({
-  campus: -1,
-  starting_time: '',
+const entry_time = ref<Date>()
+const end_time = ref<Date>()
+
+const info = reactive<MakeAppointmentType>({
+  isPublic: 1,
+  campus: 0,
+  entry_time: '',
   end_time: '',
-  unit: '',
-  name: '',
-  ID: '',
+  organization: '',
+  full_name: '',
+  id_number: '',
   phone: '',
-  transportation: '步行',
+  transport_mode: 0,
   plate_number: '',
   entourages: []
 })
 
 const addEntourage = () => {
   info.entourages.push({
-    name: '',
-    ID: '',
+    full_name: '',
+    id_number: '',
     phone: '',
   })
 
-   nextTick(()=>{
+  nextTick(()=>{
     let my_container = document.getElementById('my_container')
     my_container.scrollTop = my_container.scrollHeight;
   })
@@ -141,6 +187,37 @@ const addEntourage = () => {
 
 const deleteEntourage = (index) => {
   info.entourages = info.entourages.filter((_, i) => i !== index);
+}
+
+const submit = () => {
+  if(
+      !entry_time.value || !end_time.value || info.organization=="" || info.full_name=="" ||
+      info.id_number=="" || info.phone=="" || (info.transport_mode==1 && info.plate_number == "") ||
+      (info.isPublic == 0 && (info.visiting_department == "" || info.contact_person == "" || info.visit_purpose == ""))
+  ){
+    ElMessage({message: '表单字段不允许为空', type: 'warning',})
+    return
+  }
+
+  for(let i=0; i<info.entourages.length; i++){
+    if(info.entourages[i].full_name=="" || info.entourages[i].id_number=="" || info.entourages[i].phone==""){
+      ElMessage({message: '表单字段不允许为空', type: 'warning',})
+      return
+    }
+  }
+
+  info.entry_time = String(entry_time.value.getFullYear()).concat("-").concat(String(entry_time.value.getMonth()).padStart(2,'0')).concat('-').concat(String(entry_time.value.getDate()).padStart(2,'0'))
+  info.end_time = String(end_time.value.getFullYear()).concat("-").concat(String(end_time.value.getMonth()).padStart(2,'0')).concat('-').concat(String(end_time.value.getDate()).padStart(2,'0'))
+  useRequest(()=>makeAppointmentAPI(info),{
+    onSuccess(res){
+      if(res.data['code']==200){
+        window.location.reload();
+        ElMessage({message: '预约成功', type: 'success',})
+      }else{
+        ElMessage({message: res.data['msg'], type: 'warning',})
+      }
+    }
+  })
 }
 </script>
 
