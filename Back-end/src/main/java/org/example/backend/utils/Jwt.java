@@ -16,7 +16,8 @@ import java.util.UUID;
 public class Jwt {
     private final static SignatureAlgorithm SIGNATURE_ALGORITHM = SignatureAlgorithm.HS256;
 
-    private final static String secret = "secretKey";
+//    private final static String secret = "secretKey";
+    private final static String secret = "CampusPassTokenKey_MustBeLongEnoughToBeSecure123";
 
     // 过期时间（单位秒）/ 2小时
     private final static Long access_token_expiration = 7200L;
