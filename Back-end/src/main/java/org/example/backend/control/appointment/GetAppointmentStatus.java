@@ -1,0 +1,83 @@
+package org.example.backend.control.appointment;
+
+import cn.hutool.crypto.SmUtil;
+import com.alibaba.fastjson2.JSONObject;
+import jakarta.servlet.*;
+import jakarta.servlet.http.*;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.util.Arrays;
+import java.util.Enumeration;
+import java.util.List;
+
+import jakarta.servlet.annotation.WebServlet;
+import org.example.backend.dao.AppointmentDAO;
+import org.example.backend.model.AppointmentBean;
+import org.example.backend.model.AppointmentPersonBean;
+import org.example.backend.utils.Tools;
+
+@WebServlet("/api/appointment/status")
+public class GetAppointmentStatus extends HttpServlet {
+    @Override
+    protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        response.setContentType("text/html;charset=UTF-8");
+    }
+
+    @Override
+    protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        response.setContentType("application/json;charset=UTF-8");
+        PrintWriter out = response.getWriter();
+
+        // 读取请求的JSON格式数据
+        JSONObject jsonData = Tools.getRequestJsonData(request);
+        System.out.println(jsonData);
+
+        List<String> fieldNames = Arrays.asList("isPublic", "appointment_person_id", "full_name", "id_number", "phone");
+
+        AppointmentDAO appointmentDAO = new AppointmentDAO();
+
+        try{
+            appointmentDAO.lookupConnection();
+
+            if(Tools.areRequestFieldNull(jsonData,fieldNames)){
+                throw new Exception("{ \"code\": 420, \"msg\": \"请求数据错误\", \"data\": { } }");
+            }
+
+            // 获取请求数据
+            int isPublic = jsonData.getIntValue("isPublic");
+            int appointment_person_id = jsonData.getIntValue("appointment_person_id");
+            String full_name = jsonData.getString("full_name");
+            String id_number = jsonData.getString("id_number");
+            String phone = jsonData.getString("phone");
+
+            if(!Tools.isValidIDCard(id_number) || !Tools.isValidPhone(phone)){
+                throw new Exception("{ \"code\": 420, \"msg\": \"请求数据错误\", \"data\": { } }");
+            }
+
+            // 获取预约人员信息
+            AppointmentPersonBean appointmentPersonBean = isPublic == 1 ? appointmentDAO.findPublicAppointmentPersonOne(appointment_person_id) : appointmentDAO.findOfficialAppointmentPersonOne(appointment_person_id);
+            if(appointmentPersonBean==null){
+                throw new Exception("{ \"code\": 421, \"msg\": \"数据库操作失败\", \"data\": { } }");
+            }
+
+            // 判断信息是否匹配
+            if(!(full_name.equals(appointmentPersonBean.getFull_name()) && SmUtil.sm3(id_number).equals(appointmentPersonBean.getId_number()) && phone.equals(appointmentPersonBean.getPhone()))){
+                throw new Exception("{ \"code\": 422, \"msg\": \"信息不匹配\", \"data\": { } }");
+            }
+
+            int appointment_id = appointmentPersonBean.getAppointment_id();
+            AppointmentBean appointmentBean = isPublic == 1 ? appointmentDAO.findPublicAppointment(appointment_id) : appointmentDAO.findOfficialAppointment(appointment_id);
+
+
+            Tools.QRCode();
+            out.print("{ \"code\": 200, \"msg\": \"又是测试\", \"data\": { } }");
+        }catch (Exception e){
+            try{
+                appointmentDAO.releaseConnection();
+            }catch (Exception e2){
+                e2.printStackTrace();
+            }
+            out.println(e.getMessage());
+        }
+    }
+}

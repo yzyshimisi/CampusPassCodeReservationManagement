@@ -21,6 +21,7 @@ public class BaseDao {
         connection = dataSource.getConnection();
     }
     public void releaseConnection() throws Exception {
+        connection.setAutoCommit(true);
         connection.close();
     }
 

@@ -1,9 +1,12 @@
 package org.example.backend.model;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 
 public class AppointmentBean implements Serializable {
+    private int id;
     private int campus;
+    private String application_time;
     private String entry_time;
     private String end_time;
     private String organization;
@@ -15,8 +18,29 @@ public class AppointmentBean implements Serializable {
     private String visit_purpose;
     private int approval_status;
 
+    private ArrayList<AppointmentPersonBean> entourages;
+
     public AppointmentBean(){}
 
+
+    public ArrayList<AppointmentPersonBean> getEntourages(){
+        return  entourages;
+    }
+    public void setEntourages(ArrayList<AppointmentPersonBean> entourages){
+        this.entourages = entourages;
+    }
+    public int getId(){
+        return id;
+    }
+    public void setId(int id){
+        this.id = id;
+    }
+    public String getApplication_time(){
+        return application_time;
+    }
+    public void setApplication_time(String application_time){
+        this.application_time = application_time;
+    }
     public int getApproval_status(){
         return approval_status;
     }

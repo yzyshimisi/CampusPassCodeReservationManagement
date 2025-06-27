@@ -3,13 +3,14 @@
   <Reservation_navbar @change_page="change_page"></Reservation_navbar>
   <div class="my_container">
     <Reservation v-if="!check_reservation"></Reservation>
+    <MyReservation v-else></MyReservation>
   </div>
 </div>
 </template>
 
 <script lang="ts" setup>
 import { ref } from "vue";
-import { Reservation_navbar, Reservation } from "../../components"
+import { Reservation_navbar, Reservation, MyReservation } from "../../components"
 
 const check_reservation = ref<boolean>(false)
 

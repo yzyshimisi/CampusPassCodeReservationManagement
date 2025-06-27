@@ -158,7 +158,7 @@ const entourages = ref<Array<Object>>([])
 const entry_time = ref<Date>()
 const end_time = ref<Date>()
 
-const info = reactive<MakeAppointmentType>({
+const info = reactive<addAppointmentType>({
   isPublic: 1,
   campus: 0,
   entry_time: '',
@@ -211,7 +211,19 @@ const submit = () => {
   useRequest(()=>makeAppointmentAPI(info),{
     onSuccess(res){
       if(res.data['code']==200){
-        window.location.reload();
+        Object.assign(info,{
+          isPublic: 1,
+          campus: 0,
+          entry_time: '',
+          end_time: '',
+          organization: '',
+          full_name: '',
+          id_number: '',
+          phone: '',
+          transport_mode: 0,
+          plate_number: '',
+          entourages: []
+        })
         ElMessage({message: '预约成功', type: 'success',})
       }else{
         ElMessage({message: res.data['msg'], type: 'warning',})
