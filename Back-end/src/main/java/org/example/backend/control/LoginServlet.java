@@ -124,31 +124,30 @@ public class LoginServlet extends HttpServlet {
                 }
             }
 
-
             // 更新状态
             admin.setLoginFailCount(0);
             adminDao.modifyAdmin(admin);
 
             // 登录成功：添加 Jwt
-            // 登录成功：添加 Jwt
             Jwt jwtUtil = new Jwt();
             String token = jwtUtil.generateJwtToken(
                     String.valueOf(admin.getId()),
-                    admin.getLoginName()
+                    admin.getLoginName(),
+                    admin.getAdminRole() // 使用数据库中的实际角色
             );
 
-// 设置 Cookie（可保留）
+            // 设置 Cookie
             Cookie jwtCookie = new Cookie("jwtToken", token);
             jwtCookie.setHttpOnly(true);
             jwtCookie.setPath("/");
             jwtCookie.setMaxAge(2 * 60 * 60);
             response.addCookie(jwtCookie);
 
-// 返回指定格式 JSON
+            // 返回指定格式 JSON
             JsonObject dataJson = new JsonObject();
             dataJson.addProperty("role", admin.getAdminRole());
             dataJson.addProperty("token", token);
-            dataJson.addProperty("status", status); // 新增字段
+            dataJson.addProperty("status", status);
 
             JsonObject result = new JsonObject();
             result.addProperty("code", 200);
@@ -157,16 +156,13 @@ public class LoginServlet extends HttpServlet {
 
             response.setContentType("application/json;charset=UTF-8");
             response.getWriter().print(result.toString());
-
-
-
         } else {
             admin.setLoginFailCount(admin.getLoginFailCount() + 1);
             admin.setLastLoginFailTime(new Timestamp(System.currentTimeMillis()));
             adminDao.modifyAdmin(admin);
 
             resJson.addProperty("code", 401);
-            resJson.addProperty("msg", "用户名或密码或角色错误");
+            resJson.addProperty("msg", "用户名或密码错误");
             response.getWriter().print(resJson.toString());
         }
     }

@@ -1,0 +1,8 @@
+
+.my_page {
+    @apply w-screen h-screen py-[100px] flex items-center
+}
+
+.loginForm {
+    @apply mt-4 flex flex-col gap-4
+}

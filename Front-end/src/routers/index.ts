@@ -1,12 +1,24 @@
 import { createWebHistory, createRouter } from "vue-router";
-import { Reservation_page } from "../views"
+import { AppointmentPage, Login } from "../views"
+import { RouteRecordRaw } from 'vue-router';
 
-const routes = [
+const routes: Array<RouteRecordRaw> = [
     {
-        path : "/",
-        name : "reservation_page",
-        component : Reservation_page,
+        path : '/',
+        redirect: '/appointment'
     },
+
+    {
+        path : "/appointment",
+        name : "appointmentPage",
+        component : AppointmentPage,
+    },
+
+    {
+        path : "/login",
+        name : "login",
+        component: Login,
+    }
 ]
 
 const router = createRouter({
