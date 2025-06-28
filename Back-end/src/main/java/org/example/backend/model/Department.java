@@ -2,14 +2,14 @@ package org.example.backend.model;
 
 public class Department {
     private int id;
-    private String departmentType;
+    private Integer departmentType; // 改为 Integer，允许 null
     private String departmentName;
 
     // 无参构造函数
     public Department() {}
 
     // 有参构造函数
-    public Department(int id, String departmentType, String departmentName) {
+    public Department(int id, Integer departmentType, String departmentName) {
         this.id = id;
         this.departmentType = departmentType;
         this.departmentName = departmentName;
@@ -24,11 +24,11 @@ public class Department {
         this.id = id;
     }
 
-    public String getDepartmentType() {
+    public Integer getDepartmentType() { // 改为返回 Integer
         return departmentType;
     }
 
-    public void setDepartmentType(String departmentType) {
+    public void setDepartmentType(Integer departmentType) { // 改为接受 Integer
         this.departmentType = departmentType;
     }
 
@@ -44,7 +44,7 @@ public class Department {
     public String toString() {
         return "Department{" +
                 "id=" + id +
-                ", departmentType='" + departmentType + '\'' +
+                ", departmentType=" + departmentType + // 移除单引号，因为是整数
                 ", departmentName='" + departmentName + '\'' +
                 '}';
     }
