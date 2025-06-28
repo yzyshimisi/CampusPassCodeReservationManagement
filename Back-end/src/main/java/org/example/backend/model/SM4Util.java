@@ -18,10 +18,10 @@ public class SM4Util {
         }
     }
 
-    // 固定密钥（16 字节，128 位），生产环境中应动态生成或从配置文件读取
-    private static final byte[] KEY = "1234567890abcdef1234567890abcdef".getBytes(StandardCharsets.UTF_8);
-    // 固定初始向量 IV（16 字节），仅在 CBC 模式下使用
-    private static final byte[] IV = "abcdef1234567890abcdef1234567890".getBytes(StandardCharsets.UTF_8);
+    // 修正为 16 字节密钥（128 位）
+    private static final byte[] KEY = "1234567890abcdef".getBytes(StandardCharsets.UTF_8); // 16 字节
+    // 修正为 16 字节初始向量 (IV)
+    private static final byte[] IV = "abcdef1234567890".getBytes(StandardCharsets.UTF_8); // 16 字节
 
     /**
      * SM4 加密（CBC 模式）
@@ -34,26 +34,20 @@ public class SM4Util {
             throw new IllegalArgumentException("输入不能为空");
         }
 
-        // 创建 SM4 引擎
         SM4Engine engine = new SM4Engine();
         PaddedBufferedBlockCipher cipher = new PaddedBufferedBlockCipher(new CBCBlockCipher(engine));
 
-        // 设置密钥和 IV
         KeyParameter keyParam = new KeyParameter(KEY);
         ParametersWithIV params = new ParametersWithIV(keyParam, IV);
 
-        // 初始化加密模式
         cipher.init(true, params);
 
-        // 将输入转换为字节
         byte[] inputBytes = input.getBytes(StandardCharsets.UTF_8);
         byte[] outputBytes = new byte[cipher.getOutputSize(inputBytes.length)];
 
-        // 加密
         int len = cipher.processBytes(inputBytes, 0, inputBytes.length, outputBytes, 0);
         len += cipher.doFinal(outputBytes, len);
 
-        // 转换为十六进制字符串
         return Hex.toHexString(outputBytes, 0, len);
     }
 
@@ -68,26 +62,20 @@ public class SM4Util {
             throw new IllegalArgumentException("输入不能为空");
         }
 
-        // 创建 SM4 引擎
         SM4Engine engine = new SM4Engine();
         PaddedBufferedBlockCipher cipher = new PaddedBufferedBlockCipher(new CBCBlockCipher(engine));
 
-        // 设置密钥和 IV
         KeyParameter keyParam = new KeyParameter(KEY);
         ParametersWithIV params = new ParametersWithIV(keyParam, IV);
 
-        // 初始化解密模式
         cipher.init(false, params);
 
-        // 将十六进制字符串转换为字节
         byte[] inputBytes = Hex.decode(encrypted);
         byte[] outputBytes = new byte[cipher.getOutputSize(inputBytes.length)];
 
-        // 解密
         int len = cipher.processBytes(inputBytes, 0, inputBytes.length, outputBytes, 0);
         len += cipher.doFinal(outputBytes, len);
 
-        // 转换为字符串
         return new String(outputBytes, 0, len, StandardCharsets.UTF_8);
     }
 
