@@ -35,6 +35,7 @@ public class BaseDao {
     }
 
     public void releaseConnection() throws Exception {
+        connection.setAutoCommit(true);
         if (connection != null) connection.close();
     }
     public Connection getConnection() throws SQLException {

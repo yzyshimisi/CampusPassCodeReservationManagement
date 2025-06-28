@@ -1,0 +1,44 @@
+
+.checkForm {
+    @apply flex flex-col gap-4
+}
+
+.formTitle {
+    @apply font-bold text-2xl text-center
+}
+
+.checkButton {
+    @apply flex gap-4 justify-center
+}
+
+.checkButton button {
+    @apply px-10
+}
+
+.recordContainer {
+    @apply flex flex-col gap-4
+}
+
+.table{
+    @apply text-base
+}
+
+.table_title {
+    @apply text-lg font-bold bg-base-300
+}
+
+.passCodeContainer {
+    @apply w-full flex flex-col gap-2 mt-4 items-center text-lg
+}
+
+.passCodeContainer  img{
+    @apply w-2/3
+}
+
+.passCodeContainer  p{
+    @apply text-center
+}
+
+.iconContainer {
+    @apply flex gap-4
+}

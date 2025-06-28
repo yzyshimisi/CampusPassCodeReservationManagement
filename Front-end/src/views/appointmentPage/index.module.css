@@ -1,0 +1,8 @@
+
+.my_page{
+    @apply w-full h-screen flex flex-col gap-2 overflow-y-scroll
+}
+
+.my_container{
+    @apply p-2
+}

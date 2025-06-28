@@ -3,6 +3,7 @@ package org.example.backend.model;
 import java.io.Serializable;
 
 public class AppointmentPersonBean implements Serializable {
+    private int id;
     private int appointment_id;
     private String full_name;
     private String id_number;
@@ -12,6 +13,12 @@ public class AppointmentPersonBean implements Serializable {
 
     public AppointmentPersonBean(){}
 
+    public int getId(){
+        return id;
+    }
+    public void setId(int id){
+        this.id = id;
+    }
     public int getAppointment_id() {
         return appointment_id;
     }
