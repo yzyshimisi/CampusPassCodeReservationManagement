@@ -1,9 +1,15 @@
 import { createWebHistory, createRouter } from "vue-router";
 import { AppointmentPage } from "../views"
+import { RouteRecordRaw } from 'vue-router';
 
-const routes = [
+const routes:RouteRecordRaw[] = [
     {
-        path : "/",
+        path: '/',
+        redirect: '/appointment'
+    },
+
+    {
+        path : "/appointment",
         name : "appointmentPage",
         component : AppointmentPage,
     },

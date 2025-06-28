@@ -29,9 +29,9 @@ import { checkAppointmentAPI } from "../../apis/index.js";
 const varemit = defineEmits(['getAppointmentRecord'])
 
 const info = reactive<checkAppointmentType>({
-  full_name: '叶展驿',
-  id_number: '330302200506248815',
-  phone: '18367176624',
+  full_name: '',
+  id_number: '',
+  phone: '',
 })
 
 const appointmentRecords = ref<Array<appointmentRecordType>>([])
