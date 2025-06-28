@@ -1,5 +1,6 @@
 package org.example.backend.control.appointment;
 
+import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import jakarta.servlet.*;
 import jakarta.servlet.http.*;
@@ -59,12 +60,14 @@ public class CheckAppointment extends HttpServlet {
                 throw new Exception("{ \"code\": 421, \"msg\": \"数据库操作失败\", \"data\": { } }");
             }
 
-            // 创建预约信息数组用于返回
-            ArrayList<AppointmentBean> public_appointmentBeans = new ArrayList<>();
-            ArrayList<AppointmentBean> official_appointmentBeans = new ArrayList<>();
+            // 保存每一个预约记录（一个记录包括预约信息、自己、随行人员）
+            JSONArray appointmentRecords = new JSONArray();
 
             // 遍历每一个预约人员记录，获取预约的相关信息
             for (AppointmentPersonBean publicAppointmentPersonBean : public_appointmentPersonBeans) {
+                JSONObject appointmentRecord = new JSONObject();
+                appointmentRecord.put("appointment_person", publicAppointmentPersonBean);  // 自己的信息
+
                 int public_appointment_id = publicAppointmentPersonBean.getAppointment_id();
 
                 AppointmentBean appointmentBean = appointmentDAO.findPublicAppointment(public_appointment_id);
@@ -73,47 +76,58 @@ public class CheckAppointment extends HttpServlet {
                     throw new Exception("{ \"code\": 421, \"msg\": \"数据库操作失败\", \"data\": { } }");
                 }
 
-                // 如果是申请人，需要用预约id在预约人员表中查询同一预约的人员
+                appointmentRecord.put("appointment_info", appointmentBean);  // 预约信息
+
+                // 如果是申请人，需要查找随行人员
                 if (publicAppointmentPersonBean.getIs_applicant() == 1) {
                     ArrayList<AppointmentPersonBean> appointmentPersonBeans = appointmentDAO.findPublicAppointmentPerson(public_appointment_id);
                     if (appointmentPersonBeans == null || appointmentPersonBeans.isEmpty()) {
                         throw new Exception("{ \"code\": 421, \"msg\": \"数据库操作失败\", \"data\": { } }");
                     }
-                    appointmentBean.setEntourages(appointmentPersonBeans);
+
+                    // 随行人员移除自己
+                    appointmentPersonBeans.removeIf(appointmentPersonBean -> appointmentPersonBean.getId() == publicAppointmentPersonBean.getId());
+                    appointmentRecord.put("entourages", appointmentPersonBeans);
+
                 } else {
-                    appointmentBean.setEntourages(new ArrayList<>(Collections.singletonList(publicAppointmentPersonBean)));
+                    // 不是申请人，只能显示自己，随行人员为空
+                    appointmentRecord.put("entourages", new JSONArray());
                 }
 
-                public_appointmentBeans.add(appointmentBean);
+                appointmentRecords.add(appointmentRecord);
             }
 
             for (AppointmentPersonBean officialAppointmentPersonBean : official_appointmentPersonBeans) {
-                int official_appointment_id = officialAppointmentPersonBean.getAppointment_id();
+                JSONObject appointmentRecord = new JSONObject();
+                appointmentRecord.put("appointment_person", officialAppointmentPersonBean);
 
+                int official_appointment_id = officialAppointmentPersonBean.getAppointment_id();
                 AppointmentBean appointmentBean = appointmentDAO.findOfficialAppointment(official_appointment_id);
 
                 if (appointmentBean == null) {
                     throw new Exception("{ \"code\": 421, \"msg\": \"数据库操作失败\", \"data\": { } }");
                 }
 
+                appointmentRecord.put("appointment_info", appointmentBean);
+
                 if (officialAppointmentPersonBean.getIs_applicant() == 1) {
                     ArrayList<AppointmentPersonBean> appointmentPersonBeans = appointmentDAO.findOfficialAppointmentPerson(official_appointment_id);
                     if (appointmentPersonBeans == null || appointmentPersonBeans.isEmpty()) {
                         throw new Exception("{ \"code\": 421, \"msg\": \"数据库操作失败\", \"data\": { } }");
                     }
-                    appointmentBean.setEntourages(appointmentPersonBeans);
+
+                    appointmentPersonBeans.removeIf(appointmentPersonBean -> appointmentPersonBean.getId() == officialAppointmentPersonBean.getId());
+                    appointmentRecord.put("entourages", appointmentPersonBeans);
                 } else {
-                    appointmentBean.setEntourages(new ArrayList<>(Collections.singletonList(officialAppointmentPersonBean)));
+                    appointmentRecord.put("entourages", new JSONArray());
                 }
 
-                official_appointmentBeans.add(appointmentBean);
+                appointmentRecords.add(appointmentRecord);
             }
-
-            public_appointmentBeans.addAll(official_appointmentBeans);
 
             // 响应
             JSONObject tmp = new JSONObject();
-            tmp.put("appointmentRecords", public_appointmentBeans);
+            tmp.put("appointmentRecords", appointmentRecords);
             tmp.put("id_number", id_Number);    // 后续需要请求获取二维码信息，要用到身份证，这里后端直接返回源身份证
 
             JSONObject jsonResponse = new JSONObject();

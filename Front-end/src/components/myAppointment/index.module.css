@@ -26,3 +26,19 @@
 .table_title {
     @apply text-lg font-bold bg-base-300
 }
+
+.passCodeContainer {
+    @apply w-full flex flex-col gap-2 mt-4 items-center text-lg
+}
+
+.passCodeContainer  img{
+    @apply w-2/3
+}
+
+.passCodeContainer  p{
+    @apply text-center
+}
+
+.iconContainer {
+    @apply flex gap-4
+}

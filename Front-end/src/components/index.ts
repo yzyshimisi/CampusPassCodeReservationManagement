@@ -1,9 +1,9 @@
-import Reservation_navbar from "./reservation_navbar/index.vue"
-import Reservation from "./reservation/index.vue"
-import MyReservation from "./myReservation/index.vue"
+import AppointmentNavbar from "./appointmentNavbar/index.vue"
+import AddAppointment from "./addAppointment/index.vue"
+import MyAppointment from "./myAppointment/index.vue"
 
 export {
-    Reservation_navbar,
-    Reservation,
-    MyReservation,
+    AppointmentNavbar,
+    AddAppointment,
+    MyAppointment,
 }

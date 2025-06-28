@@ -133,6 +133,8 @@ import { makeAppointmentAPI } from "../../apis";
 import { useRequest } from "vue-hooks-plus";
 import { ElMessage } from "element-plus";
 
+const varemit = defineEmits(['scrollToEnd'])  // 告诉父组件，滚动条滚至最低部
+
 const isPublic = ref<boolean>(true)
 
 const changeComponent = () => {     // 公众预约还是公务预约
@@ -179,10 +181,7 @@ const addEntourage = () => {
     phone: '',
   })
 
-  nextTick(()=>{
-    let my_container = document.getElementById('my_container')
-    my_container.scrollTop = my_container.scrollHeight;
-  })
+  varemit('scrollToEnd')
 }
 
 const deleteEntourage = (index) => {
@@ -206,8 +205,8 @@ const submit = () => {
     }
   }
 
-  info.entry_time = String(entry_time.value.getFullYear()).concat("-").concat(String(entry_time.value.getMonth()).padStart(2,'0')).concat('-').concat(String(entry_time.value.getDate()).padStart(2,'0'))
-  info.end_time = String(end_time.value.getFullYear()).concat("-").concat(String(end_time.value.getMonth()).padStart(2,'0')).concat('-').concat(String(end_time.value.getDate()).padStart(2,'0'))
+  info.entry_time = String(entry_time.value.getFullYear()).concat("-").concat(String(entry_time.value.getMonth()+1).padStart(2,'0')).concat('-').concat(String(entry_time.value.getDate()).padStart(2,'0'))
+  info.end_time = String(end_time.value.getFullYear()).concat("-").concat(String(end_time.value.getMonth()+1).padStart(2,'0')).concat('-').concat(String(end_time.value.getDate()).padStart(2,'0'))
   useRequest(()=>makeAppointmentAPI(info),{
     onSuccess(res){
       if(res.data['code']==200){

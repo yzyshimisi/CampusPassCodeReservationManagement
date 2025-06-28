@@ -1,11 +1,11 @@
 import { createWebHistory, createRouter } from "vue-router";
-import { Reservation_page } from "../views"
+import { AppointmentPage } from "../views"
 
 const routes = [
     {
         path : "/",
-        name : "reservation_page",
-        component : Reservation_page,
+        name : "appointmentPage",
+        component : AppointmentPage,
     },
 ]
 

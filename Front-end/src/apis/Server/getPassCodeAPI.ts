@@ -1,12 +1,12 @@
 import request from "../axios";
 
-const getAppointmentStatusAPI = async (data:getAppointmentStatusType) => {
+const getPassCodeAPI = async (data:getPassCodeType) => {
     return request({
-        url: "/api/appointment/status",
+        url: "/api/appointment/pass_code",
         method: 'post',
         headers: {"Content-Type":"application/json"},
         data: data
     })
 }
 
-export default getAppointmentStatusAPI;
+export default getPassCodeAPI;

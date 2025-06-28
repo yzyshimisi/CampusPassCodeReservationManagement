@@ -1,5 +1,5 @@
-import Reservation_page from "./reservation_page/index.vue"
+import AppointmentPage from "./appointmentPage/index.vue"
 
 export {
-    Reservation_page,
+    AppointmentPage,
 }

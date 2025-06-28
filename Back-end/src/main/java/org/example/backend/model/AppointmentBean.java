@@ -18,17 +18,8 @@ public class AppointmentBean implements Serializable {
     private String visit_purpose;
     private int approval_status;
 
-    private ArrayList<AppointmentPersonBean> entourages;
-
     public AppointmentBean(){}
 
-
-    public ArrayList<AppointmentPersonBean> getEntourages(){
-        return  entourages;
-    }
-    public void setEntourages(ArrayList<AppointmentPersonBean> entourages){
-        this.entourages = entourages;
-    }
     public int getId(){
         return id;
     }

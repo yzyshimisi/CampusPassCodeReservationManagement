@@ -1,6 +1,6 @@
 
 .my_container{
-    @apply w-full h-screen flex flex-col gap-4 overflow-y-scroll
+    @apply w-full flex flex-col gap-4
 }
 
 .title{
