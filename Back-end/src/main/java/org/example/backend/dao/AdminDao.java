@@ -1,6 +1,7 @@
 package org.example.backend.dao;
 
 import org.example.backend.model.Admin;
+import org.example.backend.utils.ConnUtils;
 import org.example.backend.utils.OperatorContext;
 
 import java.sql.*;
@@ -192,6 +193,59 @@ public class AdminDao extends BaseDao {
             return false;
         }
     }
+
+    public boolean resetPassword(Admin admin) {
+
+        String sql = """
+        UPDATE admins SET
+            login_password = ?, last_password_update = ?
+        WHERE login_name = ?
+    """;
+
+        Integer operatorId = ConnUtils.getOperatorId();
+
+        try {
+            lookupConnection();
+            connection.setAutoCommit(false);  // ✅ 显式开启事务，保证 SET LOCAL 生效
+
+            try (
+                    Statement stmt = connection.createStatement();
+                    PreparedStatement ps = connection.prepareStatement(sql)
+            ) {
+                // ✅ 显式传参：设置操作者 ID 和操作类型（0 = 重置）
+                if (operatorId != null) {
+                    ConnUtils.setOperatorId(connection, operatorId);
+                }
+
+                // ✅ 告诉触发器这次是“重置”类型操作
+
+                stmt.execute("SET LOCAL app.operator_action = 0");
+                System.out.println("[SET LOCAL] operator_action = 0 (重置密码)");
+                // ✅ 设置参数
+                ps.setString(1, admin.getLoginPassword());
+                ps.setTimestamp(2, admin.getLastPasswordUpdate());
+                ps.setString(3, admin.getLoginName());
+
+                boolean updated = ps.executeUpdate() == 1;
+                connection.commit();
+                return updated;
+
+            } catch (Exception e) {
+                connection.rollback();
+                e.printStackTrace();
+                return false;
+
+            } finally {
+                releaseConnection();
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+
 
 
     public boolean deleteAdmin(String loginName) {
