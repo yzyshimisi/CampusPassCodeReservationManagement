@@ -1,6 +1,8 @@
 package org.example.backend.dao;
 
 import org.example.backend.model.Admin;
+import org.example.backend.utils.ConnUtils;
+import org.example.backend.utils.OperatorContext;
 
 import java.sql.*;
 import java.util.ArrayList;
@@ -29,47 +31,74 @@ public class AdminDao extends BaseDao {
         return admin;
     }
 
-    /*------------------ 1. 新增管理员 ------------------*/
     public boolean addAdmin(Admin admin) {
-        String sql = """
-            INSERT INTO admins
-                (admin_role, full_name, login_name, login_password,
-                 last_password_update, department_id, phone,
-                 auth_status, login_fail_count, last_login_fail_time)
-            VALUES (?,?,?,?,?,?,?,?,?,?)
-            """;
+        String sqlInsert = """
+        INSERT INTO admins
+            (admin_role, full_name, login_name, login_password,
+             last_password_update, department_id, phone,
+             auth_status, login_fail_count, last_login_fail_time)
+        VALUES (?,?,?,?,?,?,?,?,?,?)
+    """;
 
-        try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+        Integer operatorId = OperatorContext.get();
 
-            ps.setInt   (1, admin.getAdminRole());
-            ps.setString(2, admin.getFullName());
-            ps.setString(3, admin.getLoginName());
-            ps.setString(4, admin.getLoginPassword());
-            ps.setTimestamp(5, admin.getLastPasswordUpdate());
-            /* department_id 可能为 NULL */
-            if (admin.getDepartmentId() == null) {
-                ps.setNull(6, Types.INTEGER);
-            } else {
-                ps.setInt(6, admin.getDepartmentId());
-            }
-            ps.setString(7, admin.getPhone());
-            ps.setInt   (8, admin.getAuthStatus());
-            ps.setInt   (9, admin.getLoginFailCount());
-            ps.setTimestamp(10, admin.getLastLoginFailTime());
+        try {
+            lookupConnection();
+            connection.setAutoCommit(false);
 
-            int rows = ps.executeUpdate();
-            if (rows == 1) {                         // 拿到自增 id 回填到对象里
-                try (ResultSet rs = ps.getGeneratedKeys()) {
-                    if (rs.next()) admin.setId(rs.getInt(1));
+            try (
+                    Statement stmtSet = connection.createStatement();
+                    PreparedStatement ps = connection.prepareStatement(sqlInsert, Statement.RETURN_GENERATED_KEYS)
+            ) {
+                // 设置操作者 ID
+                if (operatorId != null) {
+                    String setSql = "SET LOCAL app.operator_id = " + operatorId;
+                    stmtSet.execute(setSql);
                 }
+
+                ps.setInt(1, admin.getAdminRole());
+                ps.setString(2, admin.getFullName());
+                ps.setString(3, admin.getLoginName());
+                ps.setString(4, admin.getLoginPassword());
+                ps.setTimestamp(5, admin.getLastPasswordUpdate());
+
+                if (admin.getDepartmentId() == null) {
+                    ps.setNull(6, Types.INTEGER);
+                } else {
+                    ps.setInt(6, admin.getDepartmentId());
+                }
+
+                ps.setString(7, admin.getPhone());
+                ps.setInt(8, admin.getAuthStatus());
+                ps.setInt(9, admin.getLoginFailCount());
+                ps.setTimestamp(10, admin.getLastLoginFailTime());
+
+                int rows = ps.executeUpdate();
+                if (rows == 1) {
+                    try (ResultSet rs = ps.getGeneratedKeys()) {
+                        if (rs.next()) admin.setId(rs.getInt(1));
+                    }
+                    connection.commit();
+                    return true;
+                } else {
+                    connection.rollback();
+                    return false;
+                }
+            } catch (Exception e) {
+                connection.rollback();
+                e.printStackTrace();
+                return false;
+            } finally {
+                releaseConnection();
             }
-            return rows == 1;
-        } catch (SQLException e) {
+
+        } catch (Exception e) {
             e.printStackTrace();
             return false;
         }
     }
+
+
 
     /*------------------ 2. 查询全部 ------------------*/
     public List<Admin> findAllAdmin() {
@@ -121,34 +150,112 @@ public class AdminDao extends BaseDao {
 
     /*------------------ 5. 更新管理员信息 ------------------*/
     public boolean modifyAdmin(Admin admin) {
-        String sql = """
-            UPDATE admins SET
-                admin_role = ?, full_name = ?, login_password = ?,
-                last_password_update = ?, department_id = ?, phone = ?,
-                auth_status = ?, login_fail_count = ?, last_login_fail_time = ?
-            WHERE login_name = ?
-            """;
+        String sqlUpdate = """
+        UPDATE admins SET
+            admin_role = ?, full_name = ?, login_password = ?,
+            last_password_update = ?, department_id = ?, phone = ?,
+            auth_status = ?, login_fail_count = ?, last_login_fail_time = ?
+        WHERE login_name = ?
+    """;
 
-        try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+        Integer operatorId = OperatorContext.get();
 
-            ps.setInt   (1, admin.getAdminRole());
-            ps.setString(2, admin.getFullName());
-            ps.setString(3, admin.getLoginPassword());
-            ps.setTimestamp(4, admin.getLastPasswordUpdate());
-            if (admin.getDepartmentId() == null) {
-                ps.setNull(5, Types.INTEGER);
-            } else {
-                ps.setInt(5, admin.getDepartmentId());
+        try {
+            lookupConnection();
+            connection.setAutoCommit(false);  // 显式开启事务，确保 SET LOCAL 有效
+
+            try (
+                    Statement stmtSet = connection.createStatement();
+                    PreparedStatement ps = connection.prepareStatement(sqlUpdate)
+            ) {
+                // ✨ 注入操作者 ID 到 PostgreSQL 的会话变量
+                if (operatorId != null) {
+                    String setSql = "SET LOCAL app.operator_id = " + operatorId;
+                    stmtSet.execute(setSql);
+                }
+
+                // 设置更新参数
+                ps.setInt(1, admin.getAdminRole());
+                ps.setString(2, admin.getFullName());
+                ps.setString(3, admin.getLoginPassword());
+                ps.setTimestamp(4, admin.getLastPasswordUpdate());
+
+                if (admin.getDepartmentId() == null) {
+                    ps.setNull(5, Types.INTEGER);
+                } else {
+                    ps.setInt(5, admin.getDepartmentId());
+                }
+
+                ps.setString(6, admin.getPhone());
+                ps.setInt(7, admin.getAuthStatus());
+                ps.setInt(8, admin.getLoginFailCount());
+                ps.setTimestamp(9, admin.getLastLoginFailTime());
+                ps.setString(10, admin.getLoginName());
+
+                boolean result = ps.executeUpdate() == 1;
+                connection.commit();
+                return result;
+
+            } catch (Exception e) {
+                connection.rollback();
+                e.printStackTrace();
+                return false;
+            } finally {
+                releaseConnection();
             }
-            ps.setString(6, admin.getPhone());
-            ps.setInt   (7, admin.getAuthStatus());
-            ps.setInt   (8, admin.getLoginFailCount());
-            ps.setTimestamp(9, admin.getLastLoginFailTime());
-            ps.setString(10, admin.getLoginName());
 
-            return ps.executeUpdate() == 1;
-        } catch (SQLException e) {
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    public boolean resetPassword(Admin admin) {
+
+        String sql = """
+        UPDATE admins SET
+            login_password = ?, last_password_update = ?
+        WHERE login_name = ?
+    """;
+
+        Integer operatorId = ConnUtils.getOperatorId();
+
+        try {
+            lookupConnection();
+            connection.setAutoCommit(false);  // ✅ 显式开启事务，保证 SET LOCAL 生效
+
+            try (
+                    Statement stmt = connection.createStatement();
+                    PreparedStatement ps = connection.prepareStatement(sql)
+            ) {
+                // ✅ 显式传参：设置操作者 ID 和操作类型（0 = 重置）
+                if (operatorId != null) {
+                    ConnUtils.setOperatorId(connection, operatorId);
+                }
+
+                // ✅ 告诉触发器这次是“重置”类型操作
+
+                stmt.execute("SET LOCAL app.operator_action = 0");
+                System.out.println("[SET LOCAL] operator_action = 0 (重置密码)");
+                // ✅ 设置参数
+                ps.setString(1, admin.getLoginPassword());
+                ps.setTimestamp(2, admin.getLastPasswordUpdate());
+                ps.setString(3, admin.getLoginName());
+
+                boolean updated = ps.executeUpdate() == 1;
+                connection.commit();
+                return updated;
+
+            } catch (Exception e) {
+                connection.rollback();
+                e.printStackTrace();
+                return false;
+
+            } finally {
+                releaseConnection();
+            }
+
+        } catch (Exception e) {
             e.printStackTrace();
             return false;
         }
@@ -156,12 +263,37 @@ public class AdminDao extends BaseDao {
 
     /*------------------ 6. 删除（按 login_name） ------------------*/
     public boolean deleteAdmin(String loginName) {
-        String sql = "DELETE FROM admins WHERE login_name = ?";
-        try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, loginName);
-            return ps.executeUpdate() == 1;
-        } catch (SQLException e) {
+        String sqlDelete = "DELETE FROM admins WHERE login_name = ?";
+        Integer operatorId = OperatorContext.get();  // 从上下文获取操作者 ID
+
+        try {
+            lookupConnection();  // 拿到统一事务连接
+            connection.setAutoCommit(false);  // 显式开启事务
+
+            try (
+                    Statement stmtSet = connection.createStatement();
+                    PreparedStatement psDelete = connection.prepareStatement(sqlDelete)
+            ) {
+                // ✨ 不能用占位符，必须拼接
+                if (operatorId != null) {
+                    String setSql = "SET LOCAL app.operator_id = " + operatorId;
+                    stmtSet.execute(setSql);
+                }
+
+                psDelete.setString(1, loginName);
+                boolean result = psDelete.executeUpdate() == 1;
+
+                connection.commit();
+                return result;
+            } catch (Exception e) {
+                connection.rollback();
+                e.printStackTrace();
+                return false;
+            } finally {
+                releaseConnection();
+            }
+
+        } catch (Exception e) {
             e.printStackTrace();
             return false;
         }
