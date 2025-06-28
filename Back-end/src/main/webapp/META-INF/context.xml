@@ -7,7 +7,7 @@
             maxIdle="2"
             maxWait="5000"
             driverClassName="org.postgresql.Driver"
-            username="yzyshimisi"
-            password="yzyshimisi.com123"
-            url="jdbc:postgresql://192.168.50.129:26000/javaweb?serverTimezone=Asia/Shanghai"/>
+            username="bubbling2"
+            password="Lyq@20041108"
+            url="jdbc:postgresql://192.168.216.129:26000/db_cpcr"/>
 </Context>

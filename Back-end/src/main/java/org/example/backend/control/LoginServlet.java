@@ -18,7 +18,7 @@ import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 
-@WebServlet("/API/login")
+@WebServlet("/api/login")
 public class LoginServlet extends HttpServlet {
     private static final long PASSWORD_EXPIRY_DAYS = 90;
     private static final int MAX_LOGIN_ATTEMPTS = 5;
