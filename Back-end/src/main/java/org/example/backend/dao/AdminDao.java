@@ -103,7 +103,23 @@ public class AdminDao extends BaseDao {
         return null;
     }
 
-    /*------------------ 4. 更新管理员信息 ------------------*/
+    /*------------------ 4. 按 id 查询 ------------------*/
+    public Admin findAdminById(int id) {
+        String sql = "SELECT * FROM admins WHERE id = ?";
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setInt(1, id);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) return mapRow(rs);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    /*------------------ 5. 更新管理员信息 ------------------*/
     public boolean modifyAdmin(Admin admin) {
         String sql = """
             UPDATE admins SET
@@ -138,7 +154,7 @@ public class AdminDao extends BaseDao {
         }
     }
 
-    /*------------------ 5. 删除（按 login_name） ------------------*/
+    /*------------------ 6. 删除（按 login_name） ------------------*/
     public boolean deleteAdmin(String loginName) {
         String sql = "DELETE FROM admins WHERE login_name = ?";
         try (Connection conn = dataSource.getConnection();
@@ -151,7 +167,7 @@ public class AdminDao extends BaseDao {
         }
     }
 
-    /*------------------ 6. 全名模糊查询 ------------------*/
+    /*------------------ 7. 全名模糊查询 ------------------*/
     public List<Admin> findByFuzzyName(String fuzzyName) {
         String sql = "SELECT * FROM admins WHERE full_name ILIKE ?"; // PostgreSQL 模糊匹配不区分大小写
         List<Admin> list = new ArrayList<>();
