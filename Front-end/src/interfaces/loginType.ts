@@ -1,0 +1,5 @@
+
+interface loginDataType{
+    username: string,
+    
+}

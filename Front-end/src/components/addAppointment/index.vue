@@ -155,8 +155,6 @@ const changeComponent = () => {     // 公众预约还是公务预约
 let date = new Date();
 const nowDate = ref<String>(String(date.getFullYear()).concat('-').concat('0'.concat(String(date.getMonth()+1))).concat('-').concat(String(date.getDate())));
 
-const entourages = ref<Array<Object>>([])
-
 const entry_time = ref<Date>()
 const end_time = ref<Date>()
 
