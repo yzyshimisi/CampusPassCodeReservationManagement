@@ -1,7 +1,6 @@
 package org.example.backend.control.SchoolAdmin;
 
-import com.google.gson.Gson;
-import com.google.gson.JsonObject;
+import com.alibaba.fastjson2.JSONObject;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
@@ -9,99 +8,71 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.example.backend.dao.DepartmentDao;
 import org.example.backend.model.Department;
-import org.example.backend.utils.Jwt;
+import org.example.backend.utils.Tools;
 
-import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.util.Map;
+import java.util.Arrays;
+import java.util.List;
 
-@WebServlet("/department/update")
+
+@WebServlet("/api/schoolAdmin/updateDepart")
 public class UpdateDepartmentServlet extends HttpServlet {
-    private DepartmentDao departmentDao = new DepartmentDao();
-    private Jwt jwt = new Jwt();
-    private static final Gson gson = new Gson();
 
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         response.setContentType("application/json;charset=UTF-8");
         PrintWriter out = response.getWriter();
-        String cookie = request.getHeader("Cookie");
 
-        // 验证 JWT 并获取调用者角色
-        Map<String, Object> jwtPayload = jwt.validateJwt(cookie);
-        if (jwtPayload == null) {
-            out.print("{\"code\": 401, \"msg\": \"Unauthorized\", \"data\": null}");
-            return;
-        }
+        JSONObject jsonData = Tools.getRequestJsonData(request);
 
-        Object roleObj = jwtPayload.get("admin_role");
-        if (roleObj == null || !(roleObj instanceof Integer) || (int) roleObj != 1) {
-            out.print("{\"code\": 403, \"msg\": \"Forbidden: Only school admins (role 1) can update departments\", \"data\": null}");
-            return;
-        }
+        DepartmentDao departmentDao = new DepartmentDao();
 
-        // 读取请求体
-        StringBuilder json = new StringBuilder();
-        String line;
-        try (BufferedReader reader = request.getReader()) {
-            while ((line = reader.readLine()) != null) {
-                json.append(line);
+        try{
+            departmentDao.lookupConnection();
+
+            List<String> fieldNames = Arrays.asList("departmentType", "departmentName", "id");
+            if(Tools.areRequestFieldNull(jsonData, fieldNames)){
+                throw new Exception("{ \"code\": 420, \"msg\": \"请求数据错误\", \"data\": { } }");
             }
-        } catch (IOException e) {
-            System.out.println("Error reading request: " + e.getMessage());
-            out.print("{\"code\": 500, \"msg\": \"Error reading request\", \"data\": null}");
-            return;
-        }
 
-        JsonObject jsonObj;
-        try {
-            jsonObj = gson.fromJson(json.toString(), JsonObject.class);
-        } catch (Exception e) {
-            System.out.println("JSON Parsing Error: " + e.getMessage());
-            out.print("{\"code\": 400, \"msg\": \"Invalid JSON format\", \"data\": null}");
-            return;
-        }
+            int id = jsonData.getIntValue("id");
+            int departmentType = jsonData.getIntValue("departmentType");
+            String departmentName = jsonData.getString("departmentName");
 
-        // 提取参数
-        int id = jsonObj.has("id") ? jsonObj.get("id").getAsInt() : -1;
-        if (id == -1) {
-            out.print("{\"code\": 400, \"msg\": \"Missing id for update\", \"data\": null}");
-            return;
-        }
+            if(!(departmentType>=0 && departmentType<=2)){
+                throw new Exception("{ \"code\": 420, \"msg\": \"请求数据错误\", \"data\": { } }");
+            }
 
-        Integer departmentType = jsonObj.has("departmentType") ? jsonObj.get("departmentType").getAsInt() : null;
-        String departmentName = jsonObj.has("departmentName") ? jsonObj.get("departmentName").getAsString() : null;
-        if (departmentName == null || departmentName.trim().isEmpty()) {
-            out.print("{\"code\": 400, \"msg\": \"Missing or empty departmentName\", \"data\": null}");
-            return;
-        }
-
-        // 更新现有部门
-        try {
-
+            // 更新现有部门
             Department dept = departmentDao.findById(id);
             if (dept == null) {
-                out.print("{\"code\": 404, \"msg\": \"Department not found\", \"data\": null}");
-                return;
+                throw new Exception("{ \"code\": 404, \"msg\": \"未找到对应的部门信息\", \"data\": { } }");
             }
-            //DepartmentName唯一性检查
+
+            // DepartmentName 唯一性检查
             Department department = departmentDao.findByDepartmentName(departmentName);
-            if(department != null){
-                out.print("{\"code\": 500, \"msg\": \"DepartmentName already exist\", \"data\": null}");
-                return;
+            if(department != null && department.getId()!=id){
+                throw new Exception("{ \"code\": 500, \"msg\": \"该部门名称已存在\", \"data\": { } }");
             }
-            dept.setDepartmentType(departmentType); // 更新 departmentType，如果提供
-            dept.setDepartmentName(departmentName); // 更新 departmentName
+
+            dept.setDepartmentType(departmentType);     // 更新 departmentType，如果提供
+            dept.setDepartmentName(departmentName);     // 更新 departmentName
 
             if (departmentDao.updateDepartment(dept)) {
-                out.print("{\"code\": 200, \"msg\": \"Department updated\", \"data\": null}");
+                out.print("{\"code\": 200, \"msg\": \"更新成功\", \"data\": { } }");
             } else {
-                out.print("{\"code\": 500, \"msg\": \"Failed to update department\", \"data\": null}");
+                throw new Exception("{ \"code\": 500, \"msg\": \"更新失败\", \"data\": { } }");
             }
-        } catch (Exception e) {
-            System.out.println("Error updating department: " + e.getMessage());
-            out.print("{\"code\": 500, \"msg\": \"Internal server error\", \"data\": null}");
+
+            departmentDao.releaseConnection();
+        }catch (Exception e){
+            try{
+                departmentDao.releaseConnection();
+            }catch (Exception e2){
+                e2.printStackTrace();
+            }
+            out.println(e.getMessage());
         }
     }
 }

@@ -5,18 +5,18 @@ import java.util.ArrayList;
 
 public class AppointmentBean implements Serializable {
     private int id;
-    private int campus;
+    private int campus;    // 0：朝晖、1：屏峰、2：莫干山
     private String application_time;
     private String entry_time;
     private String end_time;
     private String organization;
-    private int transport_mode;
+    private int transport_mode;     // 0：步行、1：驾车
     private String plate_number;
 
     private String visiting_department;
     private String contact_person;
     private String visit_purpose;
-    private int approval_status;
+    private int approval_status;    // 0：待审批，1：拒绝，2：通过
 
     public AppointmentBean(){}
 

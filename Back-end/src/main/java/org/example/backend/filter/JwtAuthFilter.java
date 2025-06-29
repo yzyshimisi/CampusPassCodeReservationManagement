@@ -3,42 +3,51 @@ package org.example.backend.filter;
 import io.jsonwebtoken.Claims;
 import jakarta.servlet.*;
 import jakarta.servlet.annotation.WebFilter;
-import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import org.example.backend.utils.ConnUtils;
 import org.example.backend.utils.Jwt;
 
 import java.io.IOException;
+import java.io.PrintWriter;
+import java.util.Arrays;
+import java.util.List;
 
 @WebFilter("/api/*")
 public class JwtAuthFilter implements Filter {
     @Override
-    public void doFilter(ServletRequest req, ServletResponse res, FilterChain chain)
-            throws IOException, ServletException {
+    public void doFilter(ServletRequest req, ServletResponse res, FilterChain chain) throws IOException, ServletException {
+        res.setContentType("application/json;charset=UTF-8");
         HttpServletRequest request = (HttpServletRequest) req;
+        String requestURI = request.getRequestURI();
 
-        String jwtToken = null;
-        if (request.getCookies() != null) {
-            for (Cookie cookie : request.getCookies()) {
-                if ("jwtToken".equals(cookie.getName())) {
-                    jwtToken = cookie.getValue();
-                    break;
-                }
-            }
-        }
+        PrintWriter out = res.getWriter();
 
-        Claims claims = new Jwt().validateJwt("jwtToken=" + jwtToken);
-        if (claims != null) {
-            Integer currentAdminId = Integer.valueOf((String) claims.get("id"));
-            ConnUtils.bindOperator(currentAdminId);
-            request.setAttribute("currentAdminId", currentAdminId);
-            System.out.println("[JWT Filter] 当前操作者 ID = " + currentAdminId);
+        List<String> excludedPaths = Arrays.asList("/api/appointment/add", "/api/appointment/check", "/api/appointment/passCode", "/api/login");
+
+        if (excludedPaths.stream().anyMatch(requestURI::startsWith)) {
+            chain.doFilter(req, res);
+            return;
         }
 
         try {
-            chain.doFilter(request, res);
-        } finally {
-            ConnUtils.clearOperator();
+            String jwtToken = request.getHeader("Authorization");
+            if(jwtToken == null || jwtToken.isEmpty()) {
+                throw new Exception("{ \"code\": 401, \"msg\": \"用户未授权\", \"data\": { } }");
+            }
+
+            Claims claims = new Jwt().validateJwt(jwtToken);
+            if (claims == null) {
+                throw new Exception("{ \"code\": 401, \"msg\": \"Token 过期或出错\", \"data\": { } }");
+            }
+
+            try {
+                req.setAttribute("claims", claims);
+                chain.doFilter(req, res);
+            } finally {
+                ConnUtils.clearOperator();
+            }
+        }catch (Exception e){
+            out.write(e.getMessage());
         }
     }
 }

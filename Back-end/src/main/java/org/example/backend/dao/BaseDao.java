@@ -12,8 +12,8 @@ import java.sql.Connection;
 
 public class BaseDao {
 
-    protected DataSource dataSource;
-    protected Connection connection;
+    DataSource dataSource;
+    Connection connection;
 
     public BaseDao() {
         try {
@@ -28,22 +28,22 @@ public class BaseDao {
     public void lookupConnection() throws Exception {
         connection = dataSource.getConnection();
 
-        Integer opId = OperatorContext.get();
-        if (opId != null) {
-            ConnUtils.setOperatorId(connection, opId);
-        }
+//        Integer opId = OperatorContext.get();
+//        if (opId != null) {
+//            ConnUtils.setOperatorId(connection, opId);
+//        }
     }
 
     public void releaseConnection() throws Exception {
         connection.setAutoCommit(true);
         if (connection != null) connection.close();
     }
+
     public Connection getConnection() throws SQLException {
-        Connection conn = dataSource.getConnection();
-        Integer opId = ConnUtils.getOperatorId();
-        if (opId != null) {
-            ConnUtils.setOperatorId(conn, opId);
-        }
-        return conn;
+//        Integer opId = ConnUtils.getOperatorId();
+//        if (opId != null) {
+//            ConnUtils.setOperatorId(conn, opId);
+//        }
+        return connection;
     }
 }

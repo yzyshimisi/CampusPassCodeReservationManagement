@@ -1,50 +1,53 @@
 package org.example.backend.control.systemAdmin;
 
-import com.google.gson.Gson;
-import com.google.gson.JsonObject;
+import com.alibaba.fastjson2.JSONObject;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.*;
 import org.example.backend.dao.AdminDao;
 import org.example.backend.model.Admin;
 
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.util.List;
 
 @WebServlet("/api/systemAdmin/searchByName")
 public class SearchAdminByNameServlet extends HttpServlet {
 
-    private final AdminDao adminDao = new AdminDao();
-    private final Gson gson = new Gson();
-
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         resp.setContentType("application/json;charset=UTF-8");
+        PrintWriter out = resp.getWriter();
 
-        String name = req.getParameter("name");
-        if (name == null || name.isBlank()) {
-            resp.setStatus(400);
-            JsonObject error = new JsonObject();
-            error.addProperty("code", 400);
-            error.addProperty("msg", "缺少 name 参数");
-            resp.getWriter().print(error.toString());
-            return;
-        }
+        AdminDao adminDao = new AdminDao();
 
-        try {
-            List<Admin> result = adminDao.findByFuzzyName(name);
+        try{
+            adminDao.lookupConnection();
 
-            JsonObject res = new JsonObject();
-            res.addProperty("code", 200);
-            res.addProperty("msg", "success");
-            res.add("data", gson.toJsonTree(result));
-            resp.getWriter().print(res.toString());
-        } catch (Exception e) {
-            e.printStackTrace();
-            resp.setStatus(500);
-            JsonObject err = new JsonObject();
-            err.addProperty("code", 500);
-            err.addProperty("msg", "server error");
-            resp.getWriter().print(err.toString());
+            String fuzzyName = req.getParameter("fuzzyName");
+            if (fuzzyName == null || fuzzyName.isEmpty()) {
+                throw new Exception("{ \"code\": 400, \"msg\": \"缺少 name 参数\", \"data\": { } }");
+            }
+
+            List<Admin> result = adminDao.findByFuzzyName(fuzzyName);
+            if(result.isEmpty()){
+                throw new Exception("{ \"code\": 500, \"msg\": \"server error\", \"data\": { } }");
+            }
+
+            JSONObject jsonRes = new JSONObject();
+            jsonRes.put("code", 200);
+            jsonRes.put("msg", "ok");
+            jsonRes.put("data", result);
+
+            out.println(jsonRes.toJSONString());
+
+            adminDao.releaseConnection();
+        }catch (Exception e){
+            try{
+                adminDao.releaseConnection();
+            }catch (Exception e2){
+                e.printStackTrace();
+            }
+            out.println(e.getMessage());
         }
     }
 }

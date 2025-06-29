@@ -1,92 +1,55 @@
 package org.example.backend.control.SchoolAdmin;
 
-import com.google.gson.Gson;
-import com.google.gson.JsonObject;
+import com.alibaba.fastjson2.JSONObject;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.example.backend.dao.AdminDao;
-import org.example.backend.utils.Jwt;
 import org.example.backend.model.Admin;
 
-import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.List;
-import java.util.Map;
 
-@WebServlet("/admin/manage/fuzzySearch")
+@WebServlet("/api/schoolAdmin/fuzzySearchAdmin")
 public class FuzzySearchAdminServlet extends HttpServlet {
-    private AdminDao adminDao = new AdminDao();
-    private Jwt jwt = new Jwt();
-    private static final Gson gson = new Gson();
 
     @Override
-    protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+    protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         response.setContentType("application/json;charset=UTF-8");
         PrintWriter out = response.getWriter();
-        String cookie = request.getHeader("Cookie");
 
-        // 验证 JWT 并获取调用者角色
-        Map<String, Object> jwtPayload = jwt.validateJwt(cookie); // 保持类型为 Map<String, Object>
-        if (jwtPayload == null) {
-            out.print("{\"code\": 401, \"msg\": \"Unauthorized\", \"data\": null}");
-            return;
-        }
+        AdminDao adminDao = new AdminDao();
 
-        Object roleObj = jwtPayload.get("admin_role");
-        if (roleObj == null || !(roleObj instanceof Integer) || (int) roleObj != 1) {
-            out.print("{\"code\": 403, \"msg\": \"Forbidden: Only school admins (role 1) can search admins\", \"data\": null}");
-            return;
-        }
+        try{
+            adminDao.lookupConnection();
 
-        // 读取请求体
-        StringBuilder json = new StringBuilder();
-        String line;
-        try (BufferedReader reader = request.getReader()) {
-            while ((line = reader.readLine()) != null) {
-                json.append(line);
+            String fuzzyName = request.getParameter("fuzzyName");
+            if(fuzzyName == null || fuzzyName.isEmpty()){
+                throw new Exception("{ \"code\": 420, \"msg\": \"请求数据错误\", \"data\": { } }");
             }
-        } catch (IOException e) {
-            System.out.println("Error reading request: " + e.getMessage());
-            out.print("{\"code\": 500, \"msg\": \"Error reading request\", \"data\": null}");
-            return;
-        }
 
-        String fuzzyName = null;
-        try {
-            // 解析 JSON 请求体
-            JsonObject jsonObj = gson.fromJson(json.toString(), JsonObject.class);
-            fuzzyName = jsonObj.has("fuzzyName") ? jsonObj.get("fuzzyName").getAsString() : null;
-            if (fuzzyName == null) {
-                out.print("{\"code\": 400, \"msg\": \"Missing fuzzyName\", \"data\": null}");
-                return;
-            }
-        } catch (Exception e) {
-            System.out.println("JSON Parsing Error: " + e.getMessage());
-            out.print("{\"code\": 400, \"msg\": \"Invalid JSON format\", \"data\": null}");
-            return;
-        }
+            // 执行模糊查询并过滤部门管理员 (role 3)
+            List<Admin> admins = adminDao.findByFuzzyName(fuzzyName);
+            admins.removeIf(admin -> admin.getAdminRole() != 3);
 
-        // 执行模糊查询并过滤部门管理员 (role 3)
-        List<Admin> admins = adminDao.findByFuzzyName(fuzzyName);
-        StringBuilder result = new StringBuilder("{\"code\": 200, \"msg\": \"Success\", \"data\": [");
-        boolean first = true;
-        for (Admin admin : admins) {
-            if (admin.getAdminRole() == 3) { // 仅包含部门管理员
-                if (!first) result.append(",");
-                result.append("{\"id\": ").append(admin.getId())
-                        .append(", \"fullName\": \"").append(admin.getFullName() != null ? admin.getFullName() : "")
-                        .append("\", \"loginName\": \"").append(admin.getLoginName() != null ? admin.getLoginName() : "")
-                        .append("\", \"phone\": \"").append(admin.getPhone() != null ? admin.getPhone() : "")
-                        .append("\", \"authStatus\": ").append(admin.getAuthStatus())
-                        .append("}");
-                first = false;
+            JSONObject jsonRes = new JSONObject();
+            jsonRes.put("code", 200);
+            jsonRes.put("msg", "ok");
+            jsonRes.put("data", admins);
+
+            out.println(jsonRes.toJSONString());
+
+            adminDao.releaseConnection();
+        }catch (Exception e){
+            try{
+                adminDao.releaseConnection();
+            }catch (Exception e2){
+                e2.printStackTrace();
             }
+            out.print(e.getMessage());
         }
-        result.append("]}");
-        out.print(result.toString());
     }
 }

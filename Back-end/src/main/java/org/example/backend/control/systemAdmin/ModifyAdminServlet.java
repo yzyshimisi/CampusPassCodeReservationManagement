@@ -1,107 +1,79 @@
 package org.example.backend.control.systemAdmin;
 
-import com.google.gson.*;
-import io.jsonwebtoken.Claims;
+import com.alibaba.fastjson2.JSONObject;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.*;
 import org.example.backend.dao.AdminDao;
 import org.example.backend.model.Admin;
-import org.example.backend.utils.Jwt;
-import org.example.backend.utils.OperatorContext;
-import org.example.backend.model.SM3Util;
+import org.example.backend.utils.Tools;
 
 import java.io.IOException;
-import java.sql.Timestamp;
+import java.io.PrintWriter;
+import java.util.Arrays;
+import java.util.List;
+
 @WebServlet("/api/systemAdmin/modifyAdmin")
 public class ModifyAdminServlet extends HttpServlet {
-    private final AdminDao adminDao = new AdminDao();
-    private final Gson gson = new Gson();
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         resp.setContentType("application/json;charset=UTF-8");
+        PrintWriter out = resp.getWriter();
 
-        String jwtToken = null;
-        if (req.getCookies() != null) {
-            for (Cookie cookie : req.getCookies()) {
-                if ("jwtToken".equals(cookie.getName())) {
-                    jwtToken = cookie.getValue();
-                    break;
-                }
+        JSONObject jsonData = Tools.getRequestJsonData(req);
+
+        AdminDao adminDao = new AdminDao();
+
+//        Integer operatorId = Integer.parseInt(claims.get("id").toString());
+//        OperatorContext.set(operatorId);
+
+        try{
+            adminDao.lookupConnection();
+
+            List<String> fieldNames = Arrays.asList("loginName", "fullName", "phone", "adminRole");
+
+            if(Tools.areRequestFieldNull(jsonData,fieldNames)){
+                throw new Exception("{ \"code\": 420, \"msg\": \"请求数据错误\", \"data\": { } }");
             }
-        }
 
-        if (jwtToken == null || jwtToken.isBlank()) {
-            error(resp, 401, "未登录：缺少 token");
-            return;
-        }
+            String loginName = jsonData.getString("loginName");
+            String fullName = jsonData.getString("fullName");
+            String phone = jsonData.getString("phone");
+            int adminRole = jsonData.getIntValue("adminRole");
 
-        Jwt jwtUtil = new Jwt();
-        Claims claims = jwtUtil.validateJwt("jwtToken=" + jwtToken);
-        if (claims == null) {
-            error(resp, 401, "登录失效或 token 非法");
-            return;
-        }
-
-        Integer operatorId = Integer.parseInt(claims.get("id").toString());
-        OperatorContext.set(operatorId);
-
-        ModifyDTO dto = new Gson().fromJson(req.getReader(), ModifyDTO.class);
-        if (dto == null || isBlank(dto.loginName)) {
-            error(resp, 400, "loginName 不能为空");
-            return;
-        }
-
-        Admin admin = adminDao.findByLoginName(dto.loginName);
-        if (admin == null) {
-            error(resp, 404, "管理员不存在");
-            return;
-        }
-
-        if (Integer.valueOf(3).equals(dto.adminRole)) {
-            if (dto.departmentId == null || dto.authStatus == null) {
-                error(resp, 400, "切换为部门管理员必须提供 departmentId 和 authStatus");
-                return;
+            if(!Tools.isValidPhone(phone) || !(adminRole>=0 && adminRole<=3)){
+                throw new Exception("{ \"code\": 420, \"msg\": \"请求数据错误\", \"data\": { } }");
             }
+
+            Integer departmentId = jsonData.getInteger("departmentId");
+            Integer authStatus = jsonData.getInteger("authStatus");
+
+            Admin admin = adminDao.findByLoginName(loginName);
+            if (admin == null) {
+                throw new Exception("{ \"code\": 404, \"msg\": \"管理员不存在\", \"data\": { } }");
+            }
+
+            // 只修改基础信息，不改密码
+            admin.setFullName(fullName);
+            admin.setDepartmentId(departmentId);
+            if(authStatus!=null) admin.setAuthStatus(authStatus);
+            admin.setAdminRole(adminRole);
+            admin.setPhone(phone);
+
+            if (!adminDao.modifyAdmin(admin)) {
+                throw new Exception("{ \"code\": 500, \"msg\": \"更新失败\", \"data\": { } }");
+            } else {
+                out.println("{ \"code\": 200, \"msg\": \"ok\", \"data\": { } }");
+            }
+
+            adminDao.releaseConnection();
+        }catch (Exception e){
+            try{
+                adminDao.releaseConnection();
+            }catch (Exception e2){
+                e2.printStackTrace();
+            }
+            out.println(e.getMessage());
         }
-
-        // 只修改基础信息，不改密码
-        if (!isBlank(dto.fullName)) admin.setFullName(dto.fullName);
-        if (dto.departmentId != null) admin.setDepartmentId(dto.departmentId);
-        if (dto.authStatus != null) admin.setAuthStatus(dto.authStatus);
-        if (dto.adminRole != null) admin.setAdminRole(dto.adminRole);
-
-        if (!adminDao.modifyAdmin(admin)) {
-            error(resp, 500, "更新失败");
-        } else {
-            success(resp, "修改成功");
-        }
-    }
-
-    private static class ModifyDTO {
-        String loginName;
-        String fullName;
-        Integer departmentId;
-        Integer authStatus;
-        Integer adminRole;
-    }
-
-    private boolean isBlank(String s) {
-        return s == null || s.isBlank();
-    }
-
-    private void success(HttpServletResponse resp, String msg) throws IOException {
-        JsonObject res = new JsonObject();
-        res.addProperty("code", 200);
-        res.addProperty("msg", msg);
-        resp.getWriter().print(res.toString());
-    }
-
-    private void error(HttpServletResponse resp, int code, String msg) throws IOException {
-        JsonObject res = new JsonObject();
-        res.addProperty("code", code);
-        res.addProperty("msg", msg);
-        resp.setStatus(code);
-        resp.getWriter().print(res.toString());
     }
 }

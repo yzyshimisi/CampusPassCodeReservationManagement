@@ -4,16 +4,17 @@ import java.sql.Timestamp;
 
 public class Admin {
     private int id;
-    private int adminRole; // 0：系统管理员，1：学校管理员，2：审计管理员，3：部门管理员
+    private int adminRole;  // 0：系统管理员，1：学校管理员，2：审计管理员，3：部门管理员
     private String fullName;
     private String loginName;
     private String loginPassword;
     private Timestamp lastPasswordUpdate;
-    private Integer departmentId; // 可为空
+    private Integer departmentId;   // 可为空
     private String phone;
-    private int authStatus; // 0: 未授权, 1: 已授权
+    private int authStatus;     // 0: 未授权, 1: 已授权
     private int loginFailCount;
     private Timestamp lastLoginFailTime;
+    private int isLock;     // 0：未锁定，1：锁定
 
     // 构造函数
     public Admin() {
@@ -106,5 +107,12 @@ public class Admin {
 
     public void setLastLoginFailTime(Timestamp lastLoginFailTime) {
         this.lastLoginFailTime = lastLoginFailTime;
+    }
+
+    public int getIsLock() {
+        return isLock;
+    }
+    public void setIsLock(int isLock) {
+        this.isLock = isLock;
     }
 }

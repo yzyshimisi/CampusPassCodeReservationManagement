@@ -19,16 +19,17 @@ public class Jwt {
     private final static String jwt_iss = "spzhang";
     private final static String subject = "zhangsp";
 
-    public String generateJwtToken(String id, String username, int role) {
+    public String generateJwtToken(int id, String loginName, int adminRole) {
         Map<String, Object> map = new HashMap<>();
         map.put("alg", "HS256");
         map.put("typ", "JWT");
 
         Map<String, Object> claims = new HashMap<>();
         claims.put("id", id);
-        claims.put("username", username);
+        claims.put("loginName", loginName);
+        claims.put("adminRole", adminRole);
+
         claims.put("iss", jwt_iss);
-        claims.put("admin_role", role); // 添加 admin_role 到 claims
 
         SecretKey secretKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
 
@@ -53,30 +54,14 @@ public class Jwt {
         }
     }
 
-    public Claims validateJwt(String Cookie) {
-        String jwtToken = null;
+    public Claims validateJwt(String jwtToken) {
 
-        if (Cookie == null || !Cookie.contains("jwtToken=")) {
-            System.out.println("Invalid or missing JWT token in Cookie");
-            return null;
-        }
-
-
-        int start = Cookie.indexOf("jwtToken=") + "jwtToken=".length();
-        int end = Cookie.indexOf(";", start);
-        if (end == -1) {
-            jwtToken = Cookie.substring(start); // 无分隔符，取到末尾
-        } else {
-            jwtToken = Cookie.substring(start, end); // 取到下一个分隔符
-        }
-
-        if (jwtToken.isEmpty() || jwtToken.split("\\.").length != 3) {    // 验证基本结构
+        if (jwtToken.split("\\.").length != 3) {    // 验证基本结构
             System.out.println("Invalid JWT format");
             return null;
         }
 
-        Jwt jwtDemo = new Jwt();
-        Claims claims = jwtDemo.getClaimsFromJwt(jwtToken);
+        Claims claims = getClaimsFromJwt(jwtToken);
         if (claims == null){    // 验证签名
             System.out.println("Invalid JWT");
             return null;

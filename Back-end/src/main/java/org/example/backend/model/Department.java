@@ -2,7 +2,7 @@ package org.example.backend.model;
 
 public class Department {
     private int id;
-    private Integer departmentType; // 改为 Integer，允许 null
+    private int departmentType;     // 0：行政部门，1：直属部门，2：学院
     private String departmentName;
 
     // 无参构造函数
@@ -24,11 +24,11 @@ public class Department {
         this.id = id;
     }
 
-    public Integer getDepartmentType() { // 改为返回 Integer
+    public int getDepartmentType() { // 改为返回 Integer
         return departmentType;
     }
 
-    public void setDepartmentType(Integer departmentType) { // 改为接受 Integer
+    public void setDepartmentType(int departmentType) { // 改为接受 Integer
         this.departmentType = departmentType;
     }
 
