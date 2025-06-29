@@ -9,7 +9,7 @@ public class AppointmentPersonBean implements Serializable {
     private String id_number;
     private String mask_id_number;
     private String phone;
-    private int is_applicant;
+    private int is_applicant;   // 0：非申请人, 1：申请人
 
     public AppointmentPersonBean(){}
 

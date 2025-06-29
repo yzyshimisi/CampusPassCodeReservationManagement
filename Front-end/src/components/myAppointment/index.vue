@@ -47,7 +47,7 @@ const refresh = (data:checkAppointmentType) => {
         }else{
           ElMessage({message: res.data['msg'], type: 'warning',})
         }
-      }
+      },
     })
   },1000)
 }

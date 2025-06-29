@@ -30,8 +30,6 @@ public class CheckAppointment extends HttpServlet {
         PrintWriter out = response.getWriter();
 
         JSONObject jsonData = Tools.getRequestJsonData(request);
-        System.out.println(jsonData);
-
         List<String> fieldNames = Arrays.asList("full_name", "id_number", "phone");
 
         AppointmentDAO appointmentDAO = new AppointmentDAO();

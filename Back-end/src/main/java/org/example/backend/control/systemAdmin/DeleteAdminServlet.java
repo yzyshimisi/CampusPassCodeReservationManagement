@@ -1,82 +1,53 @@
 package org.example.backend.control.systemAdmin;
 
-import com.google.gson.*;
-import io.jsonwebtoken.Claims;
+import com.alibaba.fastjson2.JSONObject;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.*;
 import org.example.backend.dao.AdminDao;
-import org.example.backend.utils.Jwt;
-import org.example.backend.utils.OperatorContext;
+import org.example.backend.utils.Tools;
 
 import java.io.IOException;
+import java.io.PrintWriter;
 
-@WebServlet("/api/systemAdmin/deleteAdmin")
+@WebServlet("/api/systemAdmin/delete")
 public class DeleteAdminServlet extends HttpServlet {
-    private final Gson gson = new Gson();
-    private final AdminDao adminDao = new AdminDao();
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         resp.setContentType("application/json;charset=UTF-8");
+        PrintWriter out = resp.getWriter();
 
-        // ✅ Step 1：从 Cookie 中提取 token 并验证
-        String jwtToken = null;
-        if (req.getCookies() != null) {
-            for (Cookie c : req.getCookies()) {
-                if ("jwtToken".equals(c.getName())) {
-                    jwtToken = c.getValue();
-                    break;
-                }
+//        Integer opId = Integer.parseInt(claims.get("id").toString());
+//        System.out.println("操作者 ID：" + opId);
+//        OperatorContext.set(opId); // ✅ 注入上下文
+
+        // 读取请求体
+        JSONObject jsonData = Tools.getRequestJsonData(req);
+        AdminDao adminDao = new AdminDao();
+
+        try{
+            adminDao.lookupConnection();
+
+            String loginName = jsonData.getString("loginName");
+
+            if(loginName==null || loginName.isEmpty()){
+                throw new Exception("{ \"code\": 420, \"msg\": \"请求数据错误\", \"data\": { } }");
             }
+
+            if (!adminDao.deleteAdmin(loginName)) {
+                throw new Exception("{ \"code\": 404, \"msg\": \"删除失败：用户不存在或已删除\", \"data\": { } }");
+            }
+
+            out.print("{ \"code\": 200, \"msg\": \"ok\", \"data\": { } }");
+
+            adminDao.releaseConnection();
+        }catch (Exception e){
+            try{
+                adminDao.releaseConnection();
+            }catch (Exception e2){
+                e2.printStackTrace();
+            }
+            out.println(e.getMessage());
         }
-
-        if (jwtToken == null || jwtToken.isBlank()) {
-            error(resp, 401, "未登录，token 为空");
-            return;
-        }
-
-        Jwt jwtUtil = new Jwt();
-        Claims claims = jwtUtil.validateJwt("jwtToken=" + jwtToken);
-        if (claims == null) {
-            error(resp, 401, "token 无效或已过期");
-            return;
-        }
-
-        Integer opId = Integer.parseInt(claims.get("id").toString());
-        System.out.println("操作者 ID：" + opId);
-        OperatorContext.set(opId); // ✅ 注入上下文
-
-        // ✅ Step 2：读取请求体
-        DeleteDTO dto = gson.fromJson(req.getReader(), DeleteDTO.class);
-        if (dto == null || dto.loginName == null || dto.loginName.isBlank()) {
-            error(resp, 400, "loginName 参数缺失");
-            return;
-        }
-
-        if (!adminDao.deleteAdmin(dto.loginName)) {
-            error(resp, 404, "删除失败：用户不存在或已删除");
-            return;
-        }
-
-        ok(resp, "删除成功");
-    }
-
-    private static class DeleteDTO {
-        String loginName;
-    }
-
-    private void ok(HttpServletResponse r, String msg) throws IOException {
-        JsonObject obj = new JsonObject();
-        obj.addProperty("code", 200);
-        obj.addProperty("msg", msg);
-        r.getWriter().print(obj);
-    }
-
-    private void error(HttpServletResponse r, int code, String msg) throws IOException {
-        r.setStatus(code);
-        JsonObject obj = new JsonObject();
-        obj.addProperty("code", code);
-        obj.addProperty("msg", msg);
-        r.getWriter().print(obj);
     }
 }

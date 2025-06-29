@@ -7,7 +7,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {  // 获取请求中带 /api 的请求
-        target: 'http://localhost/Back_end_war_exploded/',  // 后台服务器的域名
+        target: 'http://localhost/',  // 后台服务器的域名
         changeOrigin: true,   // 修改源
         rewrite: (path) => path.replace(/^\/api/, "")
       }

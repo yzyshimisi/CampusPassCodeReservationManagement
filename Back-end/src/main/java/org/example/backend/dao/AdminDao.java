@@ -28,6 +28,7 @@ public class AdminDao extends BaseDao {
         admin.setAuthStatus(rs.getInt("auth_status"));
         admin.setLoginFailCount(rs.getInt("login_fail_count"));
         admin.setLastLoginFailTime(rs.getTimestamp("last_login_fail_time"));
+        admin.setIsLock(rs.getInt("is_lock"));
         return admin;
     }
 
@@ -36,14 +37,13 @@ public class AdminDao extends BaseDao {
         INSERT INTO admins
             (admin_role, full_name, login_name, login_password,
              last_password_update, department_id, phone,
-             auth_status, login_fail_count, last_login_fail_time)
-        VALUES (?,?,?,?,?,?,?,?,?,?)
+             auth_status, login_fail_count, last_login_fail_time, is_lock)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?)
     """;
 
         Integer operatorId = OperatorContext.get();
 
         try {
-            lookupConnection();
             connection.setAutoCommit(false);
 
             try (
@@ -72,6 +72,7 @@ public class AdminDao extends BaseDao {
                 ps.setInt(8, admin.getAuthStatus());
                 ps.setInt(9, admin.getLoginFailCount());
                 ps.setTimestamp(10, admin.getLastLoginFailTime());
+                ps.setInt(11, admin.getIsLock());
 
                 int rows = ps.executeUpdate();
                 if (rows == 1) {
@@ -88,8 +89,6 @@ public class AdminDao extends BaseDao {
                 connection.rollback();
                 e.printStackTrace();
                 return false;
-            } finally {
-                releaseConnection();
             }
 
         } catch (Exception e) {
@@ -98,15 +97,12 @@ public class AdminDao extends BaseDao {
         }
     }
 
-
-
     /*------------------ 2. 查询全部 ------------------*/
     public List<Admin> findAllAdmin() {
         String sql = "SELECT * FROM admins ORDER BY id";
         List<Admin> list = new ArrayList<>();
 
-        try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql);
+        try (PreparedStatement ps = connection.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
 
             while (rs.next()) list.add(mapRow(rs));
@@ -119,8 +115,7 @@ public class AdminDao extends BaseDao {
     /*------------------ 3. 按 login_name 精确查询 ------------------*/
     public Admin findByLoginName(String loginName) {
         String sql = "SELECT * FROM admins WHERE login_name = ?";
-        try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+        try (PreparedStatement ps = connection.prepareStatement(sql)) {
 
             ps.setString(1, loginName);
             try (ResultSet rs = ps.executeQuery()) {
@@ -135,8 +130,7 @@ public class AdminDao extends BaseDao {
     /*------------------ 4. 按 id 查询 ------------------*/
     public Admin findAdminById(int id) {
         String sql = "SELECT * FROM admins WHERE id = ?";
-        try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+        try (PreparedStatement ps = connection.prepareStatement(sql)) {
 
             ps.setInt(1, id);
             try (ResultSet rs = ps.executeQuery()) {
@@ -154,14 +148,13 @@ public class AdminDao extends BaseDao {
         UPDATE admins SET
             admin_role = ?, full_name = ?, login_password = ?,
             last_password_update = ?, department_id = ?, phone = ?,
-            auth_status = ?, login_fail_count = ?, last_login_fail_time = ?
+            auth_status = ?, login_fail_count = ?, last_login_fail_time = ?, is_lock = ?
         WHERE login_name = ?
     """;
 
         Integer operatorId = OperatorContext.get();
 
         try {
-            lookupConnection();
             connection.setAutoCommit(false);  // 显式开启事务，确保 SET LOCAL 有效
 
             try (
@@ -190,7 +183,8 @@ public class AdminDao extends BaseDao {
                 ps.setInt(7, admin.getAuthStatus());
                 ps.setInt(8, admin.getLoginFailCount());
                 ps.setTimestamp(9, admin.getLastLoginFailTime());
-                ps.setString(10, admin.getLoginName());
+                ps.setInt(10, admin.getIsLock());
+                ps.setString(11, admin.getLoginName());
 
                 boolean result = ps.executeUpdate() == 1;
                 connection.commit();
@@ -200,8 +194,6 @@ public class AdminDao extends BaseDao {
                 connection.rollback();
                 e.printStackTrace();
                 return false;
-            } finally {
-                releaseConnection();
             }
 
         } catch (Exception e) {
@@ -221,7 +213,6 @@ public class AdminDao extends BaseDao {
         Integer operatorId = ConnUtils.getOperatorId();
 
         try {
-            lookupConnection();
             connection.setAutoCommit(false);  // ✅ 显式开启事务，保证 SET LOCAL 生效
 
             try (
@@ -251,8 +242,6 @@ public class AdminDao extends BaseDao {
                 e.printStackTrace();
                 return false;
 
-            } finally {
-                releaseConnection();
             }
 
         } catch (Exception e) {
@@ -267,7 +256,6 @@ public class AdminDao extends BaseDao {
         Integer operatorId = OperatorContext.get();  // 从上下文获取操作者 ID
 
         try {
-            lookupConnection();  // 拿到统一事务连接
             connection.setAutoCommit(false);  // 显式开启事务
 
             try (
@@ -289,8 +277,6 @@ public class AdminDao extends BaseDao {
                 connection.rollback();
                 e.printStackTrace();
                 return false;
-            } finally {
-                releaseConnection();
             }
 
         } catch (Exception e) {
@@ -304,13 +290,14 @@ public class AdminDao extends BaseDao {
         String sql = "SELECT * FROM admins WHERE full_name ILIKE ?"; // PostgreSQL 模糊匹配不区分大小写
         List<Admin> list = new ArrayList<>();
 
-        try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+        try (PreparedStatement ps = connection.prepareStatement(sql)) {
 
             ps.setString(1, "%" + fuzzyName + "%");
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) list.add(mapRow(rs));
             }
+
+            return list;
         } catch (SQLException e) {
             e.printStackTrace();
         }

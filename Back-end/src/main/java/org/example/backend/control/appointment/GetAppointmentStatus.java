@@ -20,7 +20,7 @@ import org.example.backend.model.AppointmentBean;
 import org.example.backend.model.AppointmentPersonBean;
 import org.example.backend.utils.Tools;
 
-@WebServlet("/api/appointment/pass_code")
+@WebServlet("/api/appointment/passCode")
 public class GetAppointmentStatus extends HttpServlet {
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {

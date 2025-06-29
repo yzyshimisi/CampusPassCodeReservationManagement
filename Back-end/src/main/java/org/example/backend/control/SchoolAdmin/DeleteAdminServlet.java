@@ -1,69 +1,51 @@
 package org.example.backend.control.SchoolAdmin;
 
-import com.google.gson.Gson;
-import com.google.gson.JsonObject;
+import com.alibaba.fastjson2.JSONObject;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.example.backend.dao.AdminDao;
-import org.example.backend.utils.Jwt;
+import org.example.backend.utils.Tools;
 
-import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.util.Map;
 
-@WebServlet("/admin/manage/delete")
+@WebServlet("/api/schoolAdmin/deleteAdmin")
 public class DeleteAdminServlet extends HttpServlet {
-    private AdminDao adminDao = new AdminDao();
-    private Jwt jwt = new Jwt();
-    private static final Gson gson = new Gson();
 
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         response.setContentType("application/json;charset=UTF-8");
         PrintWriter out = response.getWriter();
-        String cookie = request.getHeader("Cookie");
 
-        // 验证 JWT 并获取调用者角色
-        Map<String, Object> jwtPayload = jwt.validateJwt(cookie);
-        if (jwtPayload == null) {
-            out.print("{\"code\": 401, \"msg\": \"Unauthorized\", \"data\": null}");
-            return;
-        }
-        StringBuilder json = new StringBuilder();
-        String line;
-        try (BufferedReader reader = request.getReader()) {
-            while ((line = reader.readLine()) != null) {
-                json.append(line);
+        JSONObject jsonData = Tools.getRequestJsonData(request);
+
+        AdminDao adminDao = new AdminDao();
+
+        try{
+            adminDao.lookupConnection();
+
+            String loginName = jsonData.getString("loginName");
+            if(loginName==null || loginName.isEmpty()){
+                throw new Exception("{ \"code\": 420, \"msg\": \"请求数据错误\", \"data\": { } }");
             }
-        } catch (IOException e) {
-            System.out.println("Error reading request: " + e.getMessage());
-            out.print("{\"code\": 500, \"msg\": \"Error reading request\", \"data\": null}");
-            return;
-        }
 
-        JsonObject jsonObj;
-        try {
-            jsonObj = gson.fromJson(json.toString(), JsonObject.class);
-        } catch (Exception e) {
-            System.out.println("JSON Parsing Error: " + e.getMessage());
-            out.print("{\"code\": 400, \"msg\": \"Invalid JSON format\", \"data\": null}");
-            return;
-        }
+            if (adminDao.deleteAdmin(loginName)) {
+                out.print("{\"code\": 200, \"msg\": \"删除成功\", \"data\": null}");
+            } else {
+                throw new Exception("{ \"code\": 500, \"msg\": \"删除失败\", \"data\": { } }");
+            }
 
-        String loginName = jsonObj.has("loginName") ? jsonObj.get("loginName").getAsString() : null;
-        if (loginName == null) {
-            out.print("{\"code\": 400, \"msg\": \"Missing loginName\", \"data\": null}");
-            return;
-        }
-
-        if (adminDao.deleteAdmin(loginName)) {
-            out.print("{\"code\": 200, \"msg\": \"Admin deleted\", \"data\": null}");
-        } else {
-            out.print("{\"code\": 404, \"msg\": \"Admin not found\", \"data\": null}");
+            adminDao.releaseConnection();
+        }catch (Exception e){
+            try{
+                adminDao.releaseConnection();
+            }catch (Exception e2){
+                e2.printStackTrace();
+            }
+            out.print(e.getMessage());
         }
     }
 }

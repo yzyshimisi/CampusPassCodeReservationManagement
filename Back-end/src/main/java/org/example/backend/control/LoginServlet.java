@@ -1,5 +1,7 @@
 package org.example.backend.control;
 
+import cn.hutool.crypto.SmUtil;
+import com.alibaba.fastjson2.JSONObject;
 import org.example.backend.dao.AdminDao;
 import org.example.backend.model.Admin;
 import org.example.backend.model.SM3Util;
@@ -9,171 +11,147 @@ import com.google.gson.JsonObject;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.*;
+import org.example.backend.utils.Tools;
 
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.Arrays;
+import java.util.List;
 
-@WebServlet("/API/login")
+@WebServlet("/api/login")
 public class LoginServlet extends HttpServlet {
     private static final long PASSWORD_EXPIRY_DAYS = 90;
     private static final int MAX_LOGIN_ATTEMPTS = 5;
     private static final long LOCKOUT_MINUTES = 30;
-    private static final long SESSION_TIMEOUT_MINUTES = 30;
-
-    private static final Gson gson = new Gson();
 
     @Override
-    protected void doPost(HttpServletRequest request, HttpServletResponse response)
-            throws ServletException, IOException {
-        response.setContentType("application/json;charset=UTF-8");
-        request.setCharacterEncoding("UTF-8");
+    protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        response.setContentType("application/json;charset=UTF-8"); request.setCharacterEncoding("UTF-8");
 
-        // 1. 读取 JSON 请求体
-        StringBuilder sb = new StringBuilder();
-        try (BufferedReader reader = request.getReader()) {
-            String line;
-            while ((line = reader.readLine()) != null) sb.append(line);
-        }
-        JsonObject reqJson = gson.fromJson(sb.toString(), JsonObject.class);
+        PrintWriter out = response.getWriter();
 
-        String username = reqJson.get("username").getAsString();
-        String password = reqJson.get("password").getAsString();
-        int roleCode = reqJson.get("role").getAsInt();
+        // 读取 JSON 请求体
+        JSONObject jsonData = Tools.getRequestJsonData(request);
 
-        JsonObject resJson = new JsonObject();
-
-        // 2. 参数校验
-        if (username.isEmpty() || password.isEmpty()) {
-            resJson.addProperty("code", 400);
-            resJson.addProperty("msg", "用户名或密码不能为空");
-            response.getWriter().print(resJson.toString());
-            return;
-        }
-
-        // 3. 加密密码
-        String hashedPassword;
-        try {
-            hashedPassword = SM3Util.hash(password);
-        } catch (NoSuchAlgorithmException | NoSuchProviderException e) {
-            resJson.addProperty("code", 500);
-            resJson.addProperty("msg", "密码加密失败");
-            response.getWriter().print(resJson.toString());
-            return;
-        }
-
-        // 4. 查找用户
         AdminDao adminDao = new AdminDao();
-        Admin admin = adminDao.findByLoginName(username);
 
-        if (admin == null) {
-            resJson.addProperty("code", 404);
-            resJson.addProperty("msg", "用户不存在");
-            response.getWriter().print(resJson.toString());
-            return;
-        }
+        try{
+            adminDao.lookupConnection();
 
-        // 5.1 自动清零失败计数（如果超过1小时）
-        Timestamp lastFailTime = admin.getLastLoginFailTime();
-        if (lastFailTime != null) {
-            long minutesSinceLastFail = ChronoUnit.MINUTES.between(
-                    lastFailTime.toLocalDateTime(),
-                    LocalDateTime.now()
-            );
-            if (minutesSinceLastFail >= 60 && admin.getLoginFailCount() > 0) {
-                admin.setLoginFailCount(0);
-                adminDao.modifyAdmin(admin);
+            List<String> fieldNames = Arrays.asList("login_name", "login_password", "admin_role");
+            if(Tools.areRequestFieldNull(jsonData,fieldNames)){
+                throw new Exception("{ \"code\": 420, \"msg\": \"请求数据错误\", \"data\": { } }");
             }
-        }
 
-        // 5. 检查是否被锁定
-        if (admin.getLoginFailCount() >= MAX_LOGIN_ATTEMPTS) {
+            String loginName = jsonData.getString("login_name");
+            String loginPassword = jsonData.getString("login_password");
+            int adminRole = jsonData.getIntValue("admin_role");
+
+            if(!(adminRole>=0 && adminRole<=3)){
+                throw new Exception("{ \"code\": 420, \"msg\": \"请求数据错误\", \"data\": { } }");
+            }
+
+            // 查找用户
+            Admin admin = adminDao.findByLoginName(loginName);
+
+            if(admin == null){
+                throw new Exception("{ \"code\": 404, \"msg\": \"用户不存在\", \"data\": { } }");
+            }
+
+            // 自动清零失败次数数（如果超过锁定时间）
+            Timestamp lastFailTime = admin.getLastLoginFailTime();
             if (lastFailTime != null) {
-                long minutes = ChronoUnit.MINUTES.between(
+                long minutesSinceLastFail = ChronoUnit.MINUTES.between(
                         lastFailTime.toLocalDateTime(),
                         LocalDateTime.now()
                 );
-                if (minutes < LOCKOUT_MINUTES) {
-                    resJson.addProperty("code", 403);
-                    resJson.addProperty("msg", "账户被锁定，请 " + (LOCKOUT_MINUTES - minutes) + " 分钟后再试");
-                    response.getWriter().print(resJson.toString());
-                    return;
-                } else {
+                if (minutesSinceLastFail >= LOCKOUT_MINUTES) {
                     admin.setLoginFailCount(0);
+                    admin.setIsLock(0);
                     adminDao.modifyAdmin(admin);
                 }
             }
-        }
 
-        // 6. 验证密码和角色
-        if (admin.getLoginPassword().equals(hashedPassword) && admin.getAdminRole() == roleCode) {
-
-            String status = "0"; // 默认密码未过期
-            Timestamp lastPwdUpdate = admin.getLastPasswordUpdate();
-            if (lastPwdUpdate != null) {
-                long days = ChronoUnit.DAYS.between(
-                        lastPwdUpdate.toLocalDateTime(),
-                        LocalDateTime.now()
-                );
-                if (days > PASSWORD_EXPIRY_DAYS) {
-                    status = "1"; // 密码已过期
+            // 检查是否被锁定
+            if (admin.getIsLock() == 1) {
+                if(lastFailTime!=null){
+                    long minutes = ChronoUnit.MINUTES.between(
+                            lastFailTime.toLocalDateTime(),
+                            LocalDateTime.now()
+                    );
+                    String lockoutMinutes = (LOCKOUT_MINUTES - minutes) + "";
+                    String jsonString = "{ \"code\": 404, \"msg\": \"账户被锁定，请 " + lockoutMinutes + " 分钟后再试\", \"data\": { } }";
+                    throw new Exception(jsonString);
                 }
             }
 
-            // 更新状态
-            admin.setLoginFailCount(0);
-            adminDao.modifyAdmin(admin);
+            // 验证密码和角色
+            System.out.println(SmUtil.sm3(loginPassword));
+            if (admin.getLoginPassword().equals(SmUtil.sm3(loginPassword)) && admin.getAdminRole() == adminRole) {
 
-            // 登录成功：添加 Jwt
-            Jwt jwtUtil = new Jwt();
-            String token = jwtUtil.generateJwtToken(
-                    String.valueOf(admin.getId()),
-                    admin.getLoginName(),
-                    admin.getAdminRole() // 使用数据库中的实际角色
-            );
+                String status = "0"; // 默认密码未过期
+                Timestamp lastPwdUpdate = admin.getLastPasswordUpdate();
+                if (lastPwdUpdate != null) {
+                    long days = ChronoUnit.DAYS.between(
+                            lastPwdUpdate.toLocalDateTime(),
+                            LocalDateTime.now()
+                    );
+                    if (days >= PASSWORD_EXPIRY_DAYS) {
+                        status = "1"; // 密码已过期
+                    }
+                }
 
-            // 设置 Cookie
-            Cookie jwtCookie = new Cookie("jwtToken", token);
-            jwtCookie.setHttpOnly(true);
-            jwtCookie.setPath("/");
-            jwtCookie.setMaxAge(2 * 60 * 60);
-            response.addCookie(jwtCookie);
+                // 更新状态
+                admin.setLoginFailCount(0);
+                adminDao.modifyAdmin(admin);
 
-            // 返回指定格式 JSON
-            JsonObject dataJson = new JsonObject();
-            dataJson.addProperty("role", admin.getAdminRole());
-            dataJson.addProperty("token", token);
-            dataJson.addProperty("status", status);
+                // 生成Token
+                Jwt jwtUtil = new Jwt();
+                String token = jwtUtil.generateJwtToken(
+                        admin.getId(),
+                        admin.getLoginName(),
+                        admin.getAdminRole()
+                );
 
-            JsonObject result = new JsonObject();
-            result.addProperty("code", 200);
-            result.addProperty("msg", "登录成功");
-            result.add("data", dataJson);
+                // 返回指定格式 JSON
+                JSONObject res = new JSONObject();
+                res.put("code", 200);
+                res.put("msg", "ok");
 
-            response.setContentType("application/json;charset=UTF-8");
-            response.getWriter().print(result.toString());
-        } else {
-            admin.setLoginFailCount(admin.getLoginFailCount() + 1);
-            admin.setLastLoginFailTime(new Timestamp(System.currentTimeMillis()));
-            adminDao.modifyAdmin(admin);
+                JSONObject data = new JSONObject();
+                data.put("token", token);
+                data.put("admin_role", admin.getAdminRole());
+                data.put("status", status);
 
-            resJson.addProperty("code", 401);
-            resJson.addProperty("msg", "用户名或密码错误");
-            response.getWriter().print(resJson.toString());
+                res.put("data", data);
+
+                out.print(res);
+
+            } else {
+                admin.setLoginFailCount(admin.getLoginFailCount() + 1);
+                admin.setLastLoginFailTime(new Timestamp(System.currentTimeMillis()));
+                if(admin.getLoginFailCount() >= MAX_LOGIN_ATTEMPTS){    // 如果超过了次数，禁用用户
+                    admin.setIsLock(1);
+                }
+                adminDao.modifyAdmin(admin);
+
+                throw new Exception("{ \"code\": 401, \"msg\": \"用户名或密码错误\", \"data\": { } }");
+            }
+
+            adminDao.releaseConnection();
+        } catch (Exception e){
+            try{
+                adminDao.releaseConnection();
+            }catch (Exception e2){
+                e2.printStackTrace();
+            }
+            out.print(e.getMessage());
         }
-    }
-
-    private String getRedirectPageByRole(int roleCode) {
-        return switch (roleCode) {
-            case 0 -> "/systemAdmin/home";
-            case 1 -> "/schoolAdmin/home";
-            case 2 -> "/auditAdmin/home";
-            case 3 -> "/departmentAdmin/home";
-            default -> "/login";
-        };
     }
 }

@@ -1,5 +1,6 @@
 
 interface loginDataType{
-    username: string,
-    
+    login_name: string,
+    login_password: string,
+    admin_role: number
 }
