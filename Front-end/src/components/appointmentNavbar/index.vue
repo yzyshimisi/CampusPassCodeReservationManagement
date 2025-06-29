@@ -1,4 +1,4 @@
-<template>
+r<template>
   <div class="navbar bg-base-10 reservation_navbar">
     <button @click="change_page(false)" :class="{'button_selected': !check_reservation, 'button_unselected': check_reservation}">我要预约</button>
     <button @click="change_page(true)" :class="{'button_selected': check_reservation, 'button_unselected': !check_reservation}">我的预约</button>

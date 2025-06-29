@@ -7,7 +7,13 @@
             maxIdle="2"
             maxWait="5000"
             driverClassName="org.postgresql.Driver"
+<<<<<<< HEAD
+            username="bubbling2"
+            password="Lyq@20041108"
+            url="jdbc:postgresql://192.168.216.129:26000/db_cpcr"/>
+=======
             username="fairywxh"
             password="Wxh050428$"
             url="jdbc:postgresql://192.168.159.137:26000/db_wxhcdes"/>
+>>>>>>> upstream/main
 </Context>

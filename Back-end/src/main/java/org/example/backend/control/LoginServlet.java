@@ -3,7 +3,9 @@ package org.example.backend.control;
 import cn.hutool.crypto.SmUtil;
 import com.alibaba.fastjson2.JSONObject;
 import org.example.backend.dao.AdminDao;
+import org.example.backend.dao.log.LoginLogDao;
 import org.example.backend.model.Admin;
+import org.example.backend.model.LoginLog;
 import org.example.backend.model.SM3Util;
 import org.example.backend.utils.Jwt;
 import com.google.gson.Gson;
@@ -78,6 +80,15 @@ public class LoginServlet extends HttpServlet {
                 }
             }
 
+        // 6. 验证密码和角色
+        if (admin.getLoginPassword().equals(hashedPassword) && admin.getAdminRole() == roleCode) {
+            String status = "0"; // 默认密码未过期
+            Timestamp lastPwdUpdate = admin.getLastPasswordUpdate();
+            if (lastPwdUpdate != null) {
+                long days = ChronoUnit.DAYS.between(
+                        lastPwdUpdate.toLocalDateTime(),
+                        LocalDateTime.now()
+
             // 检查是否被锁定
             if (admin.getIsLock() == 1) {
                 if(lastFailTime!=null){
@@ -144,6 +155,62 @@ public class LoginServlet extends HttpServlet {
                 throw new Exception("{ \"code\": 401, \"msg\": \"用户名或密码错误\", \"data\": { } }");
             }
 
+            // 更新状态
+            admin.setLoginFailCount(0);
+            adminDao.modifyAdmin(admin);
+
+            // 插入登录成功日志
+            LoginLog log = new LoginLog(
+                    admin.getId(),
+                    new Timestamp(System.currentTimeMillis()),
+                    1 // 登录成功
+            );
+            loginLogDao.addLoginLog(log);
+
+            // 登录成功：添加 Jwt
+            Jwt jwtUtil = new Jwt();
+            String token = jwtUtil.generateJwtToken(
+                    String.valueOf(admin.getId()),
+                    admin.getLoginName(),
+                    admin.getAdminRole() // 使用数据库中的实际角色
+            );
+
+            // 设置 Cookie
+            Cookie jwtCookie = new Cookie("jwtToken", token);
+            jwtCookie.setHttpOnly(true);
+            jwtCookie.setPath("/");
+            jwtCookie.setMaxAge(2 * 60 * 60);
+            response.addCookie(jwtCookie);
+
+            // 返回指定格式 JSON
+            JsonObject dataJson = new JsonObject();
+            dataJson.addProperty("role", admin.getAdminRole());
+            dataJson.addProperty("token", token);
+            dataJson.addProperty("status", status);
+
+            JsonObject result = new JsonObject();
+            result.addProperty("code", 200);
+            result.addProperty("msg", "登录成功");
+            result.add("data", dataJson);
+
+            response.setContentType("application/json;charset=UTF-8");
+            response.getWriter().print(result.toString());
+        } else {
+            admin.setLoginFailCount(admin.getLoginFailCount() + 1);
+            admin.setLastLoginFailTime(new Timestamp(System.currentTimeMillis()));
+            adminDao.modifyAdmin(admin);
+
+            // 插入登录失败日志
+            LoginLog log = new LoginLog(
+                    admin.getId(),
+                    new Timestamp(System.currentTimeMillis()),
+                    0 // 登录失败
+            );
+            loginLogDao.addLoginLog(log);
+
+            resJson.addProperty("code", 401);
+            resJson.addProperty("msg", "用户名或密码错误");
+            response.getWriter().print(resJson.toString());
             adminDao.releaseConnection();
         } catch (Exception e){
             try{
