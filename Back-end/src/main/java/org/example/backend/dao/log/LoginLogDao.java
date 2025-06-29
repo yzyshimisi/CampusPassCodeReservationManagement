@@ -9,6 +9,20 @@ import java.util.List;
 
 public class LoginLogDao extends BaseDao {
 
+    public void addLoginLog(LoginLog log) {
+        String sql = "INSERT INTO login_log (admin_id, login_time, login_status) VALUES (?, ?, ?)";
+        try (Connection conn = getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, log.getAdminId());
+            stmt.setTimestamp(2, log.getLoginTime());
+            stmt.setInt(3, log.getLoginStatus());
+            stmt.executeUpdate();
+        } catch (SQLException e) {
+            e.printStackTrace();
+            // 可以添加日志记录或抛出自定义异常
+        }
+    }
+
     public List<LoginLog> queryWithFilters(Integer adminId, Timestamp start, Timestamp end, Integer loginStatus, int page, int pageSize) throws Exception {
         StringBuilder sql = new StringBuilder("SELECT * FROM login_log WHERE 1=1");
         List<Object> params = new ArrayList<>();

@@ -1,7 +1,9 @@
 package org.example.backend.control;
 
 import org.example.backend.dao.AdminDao;
+import org.example.backend.dao.log.LoginLogDao;
 import org.example.backend.model.Admin;
+import org.example.backend.model.LoginLog;
 import org.example.backend.model.SM3Util;
 import org.example.backend.utils.Jwt;
 import com.google.gson.Gson;
@@ -26,6 +28,7 @@ public class LoginServlet extends HttpServlet {
     private static final long SESSION_TIMEOUT_MINUTES = 30;
 
     private static final Gson gson = new Gson();
+    private static final LoginLogDao loginLogDao = new LoginLogDao();
 
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response)
@@ -111,7 +114,6 @@ public class LoginServlet extends HttpServlet {
 
         // 6. 验证密码和角色
         if (admin.getLoginPassword().equals(hashedPassword) && admin.getAdminRole() == roleCode) {
-
             String status = "0"; // 默认密码未过期
             Timestamp lastPwdUpdate = admin.getLastPasswordUpdate();
             if (lastPwdUpdate != null) {
@@ -127,6 +129,14 @@ public class LoginServlet extends HttpServlet {
             // 更新状态
             admin.setLoginFailCount(0);
             adminDao.modifyAdmin(admin);
+
+            // 插入登录成功日志
+            LoginLog log = new LoginLog(
+                    admin.getId(),
+                    new Timestamp(System.currentTimeMillis()),
+                    1 // 登录成功
+            );
+            loginLogDao.addLoginLog(log);
 
             // 登录成功：添加 Jwt
             Jwt jwtUtil = new Jwt();
@@ -160,6 +170,14 @@ public class LoginServlet extends HttpServlet {
             admin.setLoginFailCount(admin.getLoginFailCount() + 1);
             admin.setLastLoginFailTime(new Timestamp(System.currentTimeMillis()));
             adminDao.modifyAdmin(admin);
+
+            // 插入登录失败日志
+            LoginLog log = new LoginLog(
+                    admin.getId(),
+                    new Timestamp(System.currentTimeMillis()),
+                    0 // 登录失败
+            );
+            loginLogDao.addLoginLog(log);
 
             resJson.addProperty("code", 401);
             resJson.addProperty("msg", "用户名或密码错误");
